@@ -8,7 +8,7 @@
 #include <dhooks>
 #include <tf2utils>
 
-#define PLUGIN_VERSION "21w49a"
+#define PLUGIN_VERSION "21w49b"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -321,7 +321,7 @@ public Action Command_TogglePvP(int client, int args) {
 		int target[1];
 		bool tn_is_ml;
 		int matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
-		if (matches != 1 || tn_is_ml) {
+		if (matches != 1 || tn_is_ml || target[0] == client) {
 			//ReplyToTargetError(client, matches);
 			ShowPlayerPairPvPMenu(client);
 		} else {
@@ -371,7 +371,9 @@ public Action Command_StopPvP(int client, int args) {
 }
 
 static void RequestPairPvP(int requester, int requestee) {
-	if (IsFakeClient(requestee)) {
+	if (requester == requestee) {
+		//silent fail
+	} else if (IsFakeClient(requestee)) {
 		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
 	} else if (pairPvP[requester][requestee]) {
 		CPrintToChat(requestee, "%t", "Someone disengaged pair pvp", requester);
