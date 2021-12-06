@@ -1,0 +1,114 @@
+"Phrases"
+{
+	"SettingsMenuTitle"
+	{
+		"en"	"Opt In PvP"
+	}
+	"SettingsMenuGlobal"
+	{
+		"en"	"Global PvP"
+	}
+	"SettingsMenuIgnorePair"
+	{
+		"en"	"Ignore Pair PvP"
+	}
+	"Pick player for pvp"
+	{
+		"en"	"Pick a player for PvP"
+	}
+	"Bots can not use pair pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} Sorry, bots can not use {azure}Pair PvP{default}!"
+	}
+	"Someone disengaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} disengaged PvP with you"
+	}
+	"You disengaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've disengaged PvP with {1}"
+	}
+	"You disengaged all pair pvp"
+	{
+		"en"	"{darkviolet}[PvP]{defaut} You disengaged from all {azure}Pair PvP{default}."
+	}
+	"You engaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've entered PvP with {1}"
+	}
+	"You are both global pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You're currently both in {goldenrod}Global PvP{default}"
+	}
+	"Already requested pvp with"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've already requested PvP with {1}"
+	}
+	"Someone cancelled pvp request for another"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} cancelled the request to ask someone else"
+	}
+	"You cancelled pvp request"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've cancelled your previous request with {1}"
+	}
+	"Someone requested pvp, confirm"
+	{
+		"#format" "{1:N},{2:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} wants to PvP with you, use {darkgray}/pvp {2}{default} to confirm"
+	}
+	"You requested pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've requested PvP with {1}."
+	}
+	"Your pvp request was declined"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} Your {azure}Pair PvP{default} request with {1} was declined."
+	}
+	"You declined multiple pvp requests"
+	{
+		"#format" "{1:d}"
+		"en"	"{darkviolet}[PvP]{default} You've declined {1} requests for {azure}Pair PvP{default}."
+	}
+	"You declined single pvp request"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} You've declined {1}'s request for {azure}Pair PvP{default}."
+	}
+	"Global pvp state on line1"
+	{
+		"en"	"{darkviolet}[PvP]{default} You turned {goldenrod}Global PvP {limegreen}ON{default}"
+	}
+	"Global pvp state on line2"
+	{
+		"en"	"{darkviolet}[PvP]{default} Other players with {goldenrod}Global PvP{default} can hit you and be hit by you."
+	}
+	"Global pvp state off line1"
+	{
+		"en"	"{darkviolet}[PvP]{default} You turned {goldenrod}Global PvP {crimson}OFF{default}"
+	}
+	"Global pvp state off line2"
+	{
+		"en"	"{darkviolet}[PvP]{default} Enjoy the peace, you can only take damage through {azure}Pair PvP{default}."
+	}
+	"Hey there's also pair pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You can request {azure}Pair PvP{default} with {darkgray}/pvp player{default}."
+	}
+	"You are ignoring pair pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} Players can no longer request {azure}Pair PvP{default} with you."
+	}
+	"You are allowing pair pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} Players can request {azure}Pair PvP{default} with you again."
+	}
+}

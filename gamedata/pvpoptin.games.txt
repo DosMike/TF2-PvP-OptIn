@@ -1,0 +1,40 @@
+"Games"
+{
+	"tf"
+	{
+		"Functions"
+		{
+			"INextBot_IsEnemy"
+			{
+				"signature" "INextBot_IsEnemy"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "address"
+				"arguments"
+				{
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+		}
+		"Offsets"
+		{
+			"INextBot_GetNextBotCombatCharacter"
+			{
+				"windows" "47"
+				"linux" "48"
+			}
+		}
+		"Signatures"
+		{
+			"INextBot_IsEnemy"
+			{
+				"library" "server"
+				"windows" "\x55\x8B\xEC\x83\x7D\x08\x00\x75\x06\x32\xC0\x5D\xC2\x04\x00\x8B\x01\x56\xFF\x90\xB8\x00\x00\x00\x8B\xC8\xE8\x31\x32\xDF\xFF"
+				"linux" "@_ZNK8INextBot7IsEnemyEPK11CBaseEntity"
+			}
+		}
+	}
+}
