@@ -8,7 +8,7 @@
 #include <dhooks>
 #include <tf2utils>
 
-#define PLUGIN_VERSION "21w49b"
+#define PLUGIN_VERSION "21w49c"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -48,6 +48,7 @@ static int pairPvPrequest[MAXPLAYERS+1];
 static bool pairPvPignored[MAXPLAYERS+1];
 static bool clientFirstSpawn[MAXPLAYERS+1];
 static DHookSetup hdl_INextBot_IsEnemy;
+static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
 
 static ConVar cvar_JoinForceState;
 static int joinForceState;
@@ -87,12 +88,18 @@ public void OnPluginStart() {
 	GameData nbdata = new GameData("pvpoptin.games");
 	if (nbdata != INVALID_HANDLE) {
 		hdl_INextBot_IsEnemy = DHookCreateFromConf(nbdata, "INextBot_IsEnemy");
+		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(nbdata, "CTFPlayer_ApplyGenericPushbackImpulse");
 		delete nbdata;
 	}
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE) {
 		DHookEnableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
 	} else {
 		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
+	}
+	if (hdl_INextBot_IsEnemy != INVALID_HANDLE) {
+		DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
+	} else {
+		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
 	}
 	
 	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Public);
@@ -138,6 +145,8 @@ public void OnPluginStart() {
 public void OnPluginEnd() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE)
 		DHookDisableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
+	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE)
+		DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
 }
 
 public void OnClientConnected(int client) {
@@ -503,6 +512,15 @@ public MRESReturn Detour_INextBot_IsEnemy(Address pThis, DHookReturn hReturn, DH
 			return MRES_Override;
 		}
 	}
+	return MRES_Ignored;
+}
+
+public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHookParam hParams) {
+//	float impulse[3]; hParams.GetVector(1, impulse);
+	if (hParams.IsNull(2)) return MRES_Ignored;
+	int source = hParams.Get(2);
+	if (Client_IsValid(source) && source != player && !CanClientsPvP(source,player))
+		return MRES_Supercede;//don't call original to apply force
 	return MRES_Ignored;
 }
 

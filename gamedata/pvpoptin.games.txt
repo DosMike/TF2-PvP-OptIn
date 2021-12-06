@@ -18,6 +18,24 @@
 					}
 				}
 			}
+			"CTFPlayer_ApplyGenericPushbackImpulse"
+			{
+				"signature" "CTFPlayer_ApplyGenericPushbackImpulse"
+				"callconv" "thiscall"
+				"return" "void"
+				"this" "entity"
+				"arguments"
+				{
+					"impulse"
+					{
+						"type" "vectorptr"
+					}
+					"source"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -34,6 +52,12 @@
 				"library" "server"
 				"windows" "\x55\x8B\xEC\x83\x7D\x08\x00\x75\x06\x32\xC0\x5D\xC2\x04\x00\x8B\x01\x56\xFF\x90\xB8\x00\x00\x00\x8B\xC8\xE8\x31\x32\xDF\xFF"
 				"linux" "@_ZNK8INextBot7IsEnemyEPK11CBaseEntity"
+			}
+			"CTFPlayer_ApplyGenericPushbackImpulse"
+			{
+				"library" "server"
+				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x53\x57\x8B\xF9\x8D\x8F\xB0\x19\x00\x00\xE8\xBB\x7B\x03\x00"
+				"linux" "@_ZN9CTFPlayer27ApplyGenericPushbackImpulseERK6VectorPS_"
 			}
 		}
 	}
