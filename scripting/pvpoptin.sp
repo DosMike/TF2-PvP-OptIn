@@ -189,19 +189,19 @@ public void HandleCookieMenu(int client, CookieMenuAction action, any info, char
 static void ShowCookieSettingsMenu(int client) {
 	Menu menu = new Menu(HandlePvPCookieMenu);
 	char buffer[MAX_MESSAGE_LENGTH];
-	menu.SetTitle("%T", client, "SettingsMenuTitle");
+	menu.SetTitle("%T", "SettingsMenuTitle", client);
 	if (globalPvP[client]) {
-		Format(buffer, sizeof(buffer), "[X] %T", client, "SettingsMenuGlobal");
+		Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuGlobal", client);
 		menu.AddItem("globalpvp", buffer);
 	} else {
-		Format(buffer, sizeof(buffer), "[ ] %T", client, "SettingsMenuGlobal");
+		Format(buffer, sizeof(buffer), "[ ] %T", "SettingsMenuGlobal", client);
 		menu.AddItem("globalpvp", buffer);
 	}
 	if (pairPvPignored[client]) {
-		Format(buffer, sizeof(buffer), "[X] %T", client, "SettingsMenuIgnorePair");
+		Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuIgnorePair", client);
 		menu.AddItem("ignorepvp", buffer);
 	} else {
-		Format(buffer, sizeof(buffer), "[ ] %T", client, "SettingsMenuIgnorePair");
+		Format(buffer, sizeof(buffer), "[ ] %T", "SettingsMenuIgnorePair", client);
 		menu.AddItem("ignorepvp", buffer);
 	}
 	menu.ExitBackButton = true;
@@ -332,7 +332,7 @@ public Action Command_TogglePvP(int client, int args) {
 }
 static void ShowPlayerPairPvPMenu(int client) {
 	Menu menu = new Menu(HandlePickPlayerMenu);
-	menu.SetTitle("%T",client,"Pick player for pvp");
+	menu.SetTitle("%T", "Pick player for pvp", client);
 	char buid[6], bnick[65];
 	for (int i=1;i<MaxClients;i++) {
 		if (i==client || !Client_IsIngame(i)) continue;
