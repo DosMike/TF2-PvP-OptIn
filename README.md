@@ -7,7 +7,7 @@ By default no pvp and pass through enemy team players.
 - Pair PvP via invites
 - Walk through enemies base on pvp state
 - Color players based on pvp state
-- Sentries ignore non-pvp players
+- Sentries and bots ignore non-pvp players
 - Fully translatable
 - Block various conditions between non-pvp players
 - Generates a config at cfg/sourcemod/plugin.pvpoptin.cfg
@@ -22,8 +22,11 @@ Define global PvP State when player joins.
 Can be used to disable player collision between enemies.   
 0 = Don't change, 1 = with global pvp disabled, 2 = never collied
 
-**`pvp_notarget "1"`**   
-Add NOTARGET to players outside global pvp for sentries. Bots ignore this! Can be disabled for compatibility
+**`pvp_notarget "0"`**   
+Add NOTARGET to players outside global pvp. The NOTARGET flag is not used by this plugin and will break other things such as dispensers, so turning on is not recommended.
+
+**`pvp_gamestates "all"`**
+The game states when this plugin should be active or all if it should always run. Following states are possible: all, waiting, pregame, running, overtime, suddendeath, gameover
 
 **`pvp_playertaint_enable "1"`**   
 Can be used to disable player tainting based on pvp state
@@ -54,6 +57,13 @@ If the player was not found, get a menu.
 **`/stoppvp`**
 End pair PvP with all players.
 If no pair PvP running, toggle ignore state.
+
+**`/forcepvp <target|'map'> <0|1>`**
+Override the targets global pvp choice. If you use 'map' it will apply to all players joining the server. Non persistent (will reset on map change). Requires admin flag Slay.
+
+**New Target Selectors:**
+- `@pvp` Select all players with global PvP enabled
+- `@!pvp` Select all players with global PvP enabled
 
 There's also a settings menu to toggle global PvP and pair PvP.
 

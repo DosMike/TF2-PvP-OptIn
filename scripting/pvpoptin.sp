@@ -42,13 +42,30 @@ static TFCond pvpConditions[] = {
 	TFCond_AirCurrent
 };
 
+enum eGameState(<<=1) {
+	GameState_Never=0,
+	GameState_Waiting=1,
+	GameState_PreGame,
+	GameState_Running,
+	GameState_Overtime,
+	GameState_SuddenDeath,
+	GameState_GameOver
+}
+
+static bool isActive;
+static eGameState currentGameState;
 static bool globalPvP[MAXPLAYERS+1];
+static bool forcePvP[MAXPLAYERS+1]; //for events
 static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1];
 static int pairPvPrequest[MAXPLAYERS+1];
 static bool pairPvPignored[MAXPLAYERS+1];
 static bool clientFirstSpawn[MAXPLAYERS+1];
 static DHookSetup hdl_INextBot_IsEnemy;
+static bool detoured_INextBot_IsEnemy;
 static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
+static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
+static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
+static bool detoured_CObjectSentrygun_ValidTargetPlayer;
 
 static ConVar cvar_JoinForceState;
 static int joinForceState;
@@ -56,6 +73,8 @@ static ConVar cvar_NoCollide;
 static int noCollideState;
 static ConVar cvar_NoTarget;
 static bool noTargetPlayers;
+static ConVar cvar_ActiveStates;
+static eGameState activeGameStates;
 static ConVar cvar_UsePlayerColors;
 static bool usePlayerStateColors;
 static ConVar cvar_ColorGlobalOnRed;
@@ -66,6 +85,8 @@ static int playerStateColors[4][4];
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
+
+#define IsGlobalPvP(%1) (globalPvP[%1]||forcePvP[%1])
 
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
@@ -89,29 +110,36 @@ public void OnPluginStart() {
 	if (nbdata != INVALID_HANDLE) {
 		hdl_INextBot_IsEnemy = DHookCreateFromConf(nbdata, "INextBot_IsEnemy");
 		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(nbdata, "CTFPlayer_ApplyGenericPushbackImpulse");
+		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(nbdata, "CObjectSentrygun_ValidTargetPlayer");
 		delete nbdata;
-	}
-	if (hdl_INextBot_IsEnemy != INVALID_HANDLE) {
-		DHookEnableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
-	} else {
-		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
-	}
-	if (hdl_INextBot_IsEnemy != INVALID_HANDLE) {
-		DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
-	} else {
-		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
 	}
 	
 	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Public);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "End all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
+	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
+	
+	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
+	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
 	
 	HookEvent("post_inventory_application", OnInventoryApplicationPost);
 	
+	HookEvent("teamplay_waiting_begins", OnRoundStateChange);
+	HookEvent("teamplay_waiting_ends", OnRoundStateChange);
+	HookEvent("teamplay_round_start", OnRoundStateChange);
+	HookEvent("teamplay_overtime_begin", OnRoundStateChange);
+	HookEvent("teamplay_overtime_end", OnRoundStateChange);
+	HookEvent("teamplay_suddendeath_begin", OnRoundStateChange);
+	HookEvent("teamplay_suddendeath_end", OnRoundStateChange);
+	HookEvent("teamplay_game_over", OnRoundStateChange);
+	HookEvent("teamplay_round_win", OnRoundStateChange);
+	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
+	
 	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", FCVAR_ARCHIVE, true, -1.0, true, 1.0);
 	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", FCVAR_ARCHIVE, true, 0.0, true, 2.0);
-	cvar_NoTarget = CreateConVar( "pvp_notarget", "1", "Add NOTARGET to players outside global pvp for sentries. Bots ignore this! Can be disabled for compatibility", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
+	cvar_NoTarget = CreateConVar( "pvp_notarget", "0", "Add NOTARGET to players outside global pvp. This will probably break stuff!", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
+	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", FCVAR_ARCHIVE);
 	cvar_UsePlayerColors = CreateConVar( "pvp_playertaint_enable", "1", "Can be used to disable player tainting based on pvp state", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
 	cvar_ColorGlobalOnRed = CreateConVar( "pvp_playertaint_redon", "125 125 255", "Color for players on RED with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
 	cvar_ColorGlobalOnBlu = CreateConVar( "pvp_playertaint_bluon", "255 125 125", "Color for players on BLU with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
@@ -121,6 +149,7 @@ public void OnPluginStart() {
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
 	hookAndLoadCvar(cvar_NoCollide, OnCVarChanged_NoCollision);
 	hookAndLoadCvar(cvar_NoTarget, OnCVarChanged_NoTarget);
+	hookAndLoadCvar(cvar_ActiveStates, OnCVarChanged_ActiveStates);
 	hookAndLoadCvar(cvar_UsePlayerColors, OnCVarChanged_UsePlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOnRed, OnCVarChanged_PlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOnBlu, OnCVarChanged_PlayerTaint);
@@ -130,6 +159,7 @@ public void OnPluginStart() {
 	AutoExecConfig();
 	
 	SetCookieMenuItem(HandleCookieMenu, 0, "PvP");
+	bool hotload;
 	for (int i=1;i<=MaxClients;i++) {
 		if(IsClientConnected(i)) {
 			OnClientConnected(i);
@@ -137,20 +167,101 @@ public void OnPluginStart() {
 				SDKHookClient(i);
 			if (AreClientCookiesCached(i))
 				OnClientCookiesCached(i);
-			if (IsPlayerAlive(i))
+			if (IsPlayerAlive(i)) {
 				OnClientSpawnPost(i);
+				hotload = true;
+			}
 		}
 	}
+	if (hotload) RequestFrame(HotloadGameState);
 }
 public void OnPluginEnd() {
-	if (hdl_INextBot_IsEnemy != INVALID_HANDLE)
-		DHookDisableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
-	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE)
-		DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
+	DHooksDetach();
+}
+
+static void DHooksAttach() {
+	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && !detoured_INextBot_IsEnemy) {
+		detoured_INextBot_IsEnemy = DHookEnableDetour(hdl_INextBot_IsEnemy, false, Detour_INextBot_IsEnemy);
+	} else {
+		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
+	}
+	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && !detoured_CTFPlayer_ApplyGenericPushbackImpulse) {
+		detoured_CTFPlayer_ApplyGenericPushbackImpulse = DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
+	} else {
+		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
+	}
+	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && !detoured_CObjectSentrygun_ValidTargetPlayer) {
+		detoured_CObjectSentrygun_ValidTargetPlayer = DHookEnableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, false, Detour_CObjectSentrygun_ValidTargetPlayer);
+	} else {
+		PrintToServer("Could not hook CObjectSentrygun::ValidTargetPlayer(CTFPlayer*,Vector*,Vector*). Whack!");
+	}
+}
+static void DHooksDetach() {
+	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
+		detoured_INextBot_IsEnemy ^= DHookDisableDetour(hdl_INextBot_IsEnemy, false, Detour_INextBot_IsEnemy);
+	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && detoured_CTFPlayer_ApplyGenericPushbackImpulse)
+		detoured_CTFPlayer_ApplyGenericPushbackImpulse ^= DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
+	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && detoured_CObjectSentrygun_ValidTargetPlayer)
+		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, false, Detour_CObjectSentrygun_ValidTargetPlayer);
+}
+
+public void OnMapEnd() {
+	forcePvP[0] = false;
+}
+
+public void OnMapStart() {
+	UpdateActiveState(GameState_PreGame);
+}
+public void OnRoundStateChange(Event event, const char[] name, bool dontBroadcast) {
+	if (StrEqual(name, "teamplay_waiting_begins")) { //pregame, waiting for players
+		UpdateActiveState(GameState_PreGame|GameState_Waiting);
+	} else if (StrEqual(name, "teamplay_waiting_ends")) { //pregame
+		UpdateActiveState(GameState_PreGame);
+	} else if (StrEqual(name, "teamplay_round_start") ||
+			StrEqual(name, "teamplay_overtime_end") ||
+			StrEqual(name, "teamplay_suddendeath_end")) { //running
+		UpdateActiveState(GameState_Running);
+	} else if (StrEqual(name, "teamplay_overtime_begin")) { //overtime
+		UpdateActiveState(GameState_Overtime);
+	} else if (StrEqual(name, "teamplay_suddendeath_begin")) { //sudden death
+		UpdateActiveState(GameState_SuddenDeath);
+	} else if (StrEqual(name, "teamplay_game_over") ||
+			StrEqual(name, "teamplay_round_stalemate") ||
+			StrEqual(name, "teamplay_round_win")) { //game over
+		UpdateActiveState(GameState_GameOver);
+	}
+}
+static void HotloadGameState() {
+	RoundState round = GameRules_GetRoundState();
+	if (round == RoundState_GameOver || round == RoundState_TeamWin || round == RoundState_Stalemate) {
+		UpdateActiveState(GameState_GameOver);
+	} else if (round == RoundState_Pregame || round == RoundState_Preround) {
+		UpdateActiveState(GameState_PreGame);
+	} else {
+		UpdateActiveState(GameState_Running);
+	}
+}
+static void UpdateActiveState(eGameState gameState) {
+	bool wasActive = isActive;
+	isActive = (activeGameStates & (currentGameState=gameState))!=GameState_Never;
+	if (isActive != wasActive) {
+		if (isActive) {
+			CPrintToChatAll("%t", "Plugin now active");
+			DHooksAttach();
+		} else {
+			CPrintToChatAll("%t", "Plugin now inactive");
+			DHooksDetach();
+		}
+		for (int i=1;i<MaxClients;i++) {
+			if (Client_IsIngame(i))
+				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
+		}
+	}
 }
 
 public void OnClientConnected(int client) {
 	globalPvP[client] = false;
+	forcePvP[client] = false;
 	SetPairPvPClient(client);
 	pairPvPrequest[client]=0;
 	pairPvPignored[client]=false;
@@ -158,6 +269,7 @@ public void OnClientConnected(int client) {
 }
 public void OnClientDisconnect(int client) {
 	globalPvP[client] = false;
+	forcePvP[client] = false;
 	SetPairPvPClient(client);
 	pairPvPrequest[client]=0;
 	pairPvPignored[client]=false;
@@ -182,7 +294,7 @@ public void OnClientCookiesCached(int client) {
 		SetGlobalPvP(client, joinForceState<0);
 	} else if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		globalPvP[client] = view_as<bool>(StringToInt(buffer));
-		UpdateEntityFlagsGlobalPvP(client, globalPvP[client]);
+		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	}
 	if((cookie = FindClientCookie(COOKIE_IGNOREPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		pairPvPignored[client] = view_as<bool>(StringToInt(buffer));
@@ -245,6 +357,20 @@ public void OnCVarChanged_NoCollision(ConVar convar, const char[] oldValue, cons
 }
 public void OnCVarChanged_NoTarget(ConVar convar, const char[] oldValue, const char[] newValue) {
 	noTargetPlayers = convar.BoolValue;
+}
+public void OnCVarChanged_ActiveStates(ConVar convar, const char[] oldValue, const char[] newValue) {
+	eGameState activeStates;
+	if (StrContains(newValue,"all",false)!=-1) { activeStates = view_as<eGameState>(-1); }
+	else {
+		if (StrContains(newValue,"pregame",false)!=-1) activeStates |= GameState_PreGame;
+		if (StrContains(newValue,"waiting",false)!=-1) activeStates |= GameState_Waiting;
+		if (StrContains(newValue,"running",false)!=-1) activeStates |= GameState_Running;
+		if (StrContains(newValue,"overtime",false)!=-1) activeStates |= GameState_Overtime;
+		if (StrContains(newValue,"suddendeath",false)!=-1) activeStates |= GameState_SuddenDeath;
+		if (StrContains(newValue,"gameover",false)!=-1) activeStates |= GameState_GameOver;
+	}
+	activeGameStates = activeStates;
+	UpdateActiveState(currentGameState);
 }
 public void OnCVarChanged_UsePlayerTaint(ConVar convar, const char[] oldValue, const char[] newValue) {
 	if (!(usePlayerStateColors = convar.BoolValue)) {
@@ -314,13 +440,25 @@ public void OnCVarChanged_PlayerTaint(ConVar convar, const char[] oldValue, cons
 	//update clients
 	for (int i=1;i<=MaxClients;i++) {
 		if (Client_IsIngame(i)&&IsPlayerAlive(i)) {
-			UpdateEntityFlagsGlobalPvP(i, globalPvP[i]);
+			UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 		}
 	}
 }
 //enregion
 
 //region command and toggling/requesting pvp
+bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
+	bool invert = pattern[1]=='!';
+	for (int i=1;i<=MaxClients;i++) {
+		if (Client_IsIngame(i)) {
+			if (globalPvP[i] ^ invert) {
+				clients.Push(i);
+			}
+		}
+	}
+	return true;
+}
+
 public Action Command_TogglePvP(int client, int args) {
 	if (GetCmdArgs()==0) {
 		SetGlobalPvP(client, !globalPvP[client]);
@@ -369,10 +507,62 @@ public int HandlePickPlayerMenu(Menu menu, MenuAction action, int param1, int pa
 	}
 }
 
+public Action Command_ForcePvP(int client, int args) {
+	if (GetCmdArgs()!=2) {
+		char name[16];
+		GetCmdArg(0, name, sizeof(name));
+		ReplyToCommand(client, "Usage: %s <target|'map'> <1/0>", name);
+	} else {
+		char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
+		GetCmdArg(2,pattern, sizeof(pattern));
+		bool pvpon = StringToInt(pattern) != 0;
+		GetCmdArg(1,pattern, sizeof(pattern));
+		if (StrEqual(pattern, "map", false)) {
+			forcePvP[0] = pvpon;
+			for (int i=1;i<=MaxClients;i++) {
+				if (!Client_IsIngame(i) || IsFakeClient(i)) continue;
+				if (!pvpon) forcePvP[i] = false; //turn off previously individually set flags
+				UpdateEntityFlagsGlobalPvP(i, pvpon||globalPvP[i]);
+			}
+			CSkipNextClient(client);
+			if (pvpon) {
+				CPrintToChatAll("%t", "Someone forced map pvp", client);
+				CReplyToCommand(client, "%t", "You forced map pvp");
+			} else {
+				CPrintToChatAll("%t", "Someone reset map pvp", client);
+				CReplyToCommand(client, "%t", "You reset map pvp");
+			}
+		} else {
+			int target[MAXPLAYERS];
+			bool tn_is_ml;
+			int matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY, tname, sizeof(tname), tn_is_ml);
+			if (matches < 1) {
+				ReplyToTargetError(client, matches);
+			} else {
+				CSkipNextClient(client);
+				if (pvpon) {
+					CPrintToChatAll("%t","Someone forced your global pvp", client);
+					CReplyToCommand(client, "%t", "You forced someones global pvp", tname);
+				} else {
+					CPrintToChatAll("%t","Someone reset your global pvp", client);
+					CReplyToCommand(client, "%t", "You reset someones global pvp", tname);
+				}
+				for (int i;i<matches;i++) {
+					int player = target[i];
+					if (!Client_IsIngame(i) ||IsFakeClient(player)) continue;
+					forcePvP[player] = pvpon;
+					UpdateEntityFlagsGlobalPvP(player, IsGlobalPvP(player));
+				}
+			}
+		}
+	}
+	return Plugin_Handled;
+}
+
 public Action Command_StopPvP(int client, int args) {
 	if (HasAnyPairPvP(client)) {
 		EndAllPairPvPFor(client);
-		CPrintToChat(client, "{darkviolet}[PvP]{default} Use the command again to ignore further requests");
+		CPrintToChat(client, "%t", "Use command again to toggle ignore");
 	} else {
 		SetPairPvPIgnored(client, !pairPvPignored[client]);
 	}
@@ -419,9 +609,9 @@ static void DeclinePairPvP(int requestee) {
 		}
 	}
 	if (declined>1) {
-		CPrintToChat(requestee, "You declined multiple pvp requests", declined);
+		CPrintToChat(requestee, "%t", "You declined multiple pvp requests", declined);
 	} else if (declined==1) {
-		CPrintToChat(requestee, "You declined single pvp request", someRequester);
+		CPrintToChat(requestee, "%t", "You declined single pvp request", someRequester);
 	}
 }
 static void EndAllPairPvPFor(int client) {
@@ -456,7 +646,7 @@ static void SetGlobalPvP(int client, bool pvp) {
 		SetClientCookie(client, cookie, value);
 	}
 	delete cookie;
-	UpdateEntityFlagsGlobalPvP(client, pvp);
+	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	PrintGlobalPvpState(client);
 }
 static void SetPairPvPIgnored(int client, bool ignore) {
@@ -489,9 +679,27 @@ static bool HasAnyPairPvP(int client) {
 	}
 	return false;
 }
-static bool CanClientsPvP(int client1, int client2) {
-	return (globalPvP[client1] && globalPvP[client2]) || pairPvP[client1][client2];
+/**
+ * if the entity is a client, return the client. otherwise try to resolve m_hBuilder
+ * @return the player associated with this entity or INVALID_ENT_REFERENCE if none
+ */
+static int GetPlayerEntity(int entity) {
+	if (1<=entity<=MaxClients) {
+		return entity;
+	} else if (HasEntProp(entity, Prop_Send, "m_hBuilder")) {
+		int tmp=GetEntPropEnt(entity, Prop_Send, "m_hBuilder");
+		if (1<=tmp<=MaxClients)
+			return tmp;
+	}
+	return INVALID_ENT_REFERENCE;
 }
+static bool CanClientsPvP(int client1, int client2) {
+	return client1==client2 || forcePvP[0] || (IsGlobalPvP(client1) && IsGlobalPvP(client2)) || pairPvP[client1][client2];
+}
+//static bool CanEntitiesPvP(int entity1, int entity2) {
+//	int tmp,client1=GetPlayerEntity(entity1),client2=GetPlayerEntity(entity2);
+//	return client1 != INVALID_ENT_REFERENCE && client2 != INVALID_ENT_REFERENCE && CanClientsPvP(client1, client2);
+//}
 //endregion
 
 //region actual damage blocking and entity stuff
@@ -499,18 +707,10 @@ static bool CanClientsPvP(int client1, int client2) {
 // this dhook simply makes bots ignore players that dont want to pvp
 public MRESReturn Detour_INextBot_IsEnemy(Address pThis, DHookReturn hReturn, DHookParam hParams) {
 	int target = hParams.Get(1);
-	if (hReturn.Value) {
-		int player;
-		if ((1<=target<=MaxClients)) {
-			player = target;
-		} else if (HasEntProp(target, Prop_Send, "m_hBuilder")) {
-			int owner = GetEntPropEnt(target, Prop_Send, "m_hBuilder");
-			if ((1<= owner <=MaxClients)) player = owner;
-		}
-		if (player && !globalPvP[player]) {
-			hReturn.Value = false;
-			return MRES_Override;
-		}
+	int player = GetPlayerEntity(target);
+	if (player != INVALID_ENT_REFERENCE && !IsGlobalPvP(player) && !forcePvP[0]) {
+		hReturn.Value = false;
+		return MRES_Override;
 	}
 	return MRES_Ignored;
 }
@@ -519,8 +719,20 @@ public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHook
 //	float impulse[3]; hParams.GetVector(1, impulse);
 	if (hParams.IsNull(2)) return MRES_Ignored;
 	int source = hParams.Get(2);
-	if (Client_IsValid(source) && source != player && !CanClientsPvP(source,player))
+	if (Client_IsValid(source) && !CanClientsPvP(source,player))
 		return MRES_Supercede;//don't call original to apply force
+	return MRES_Ignored;
+}
+
+public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookReturn hReturn, DHookParam hParams) {
+//	float impulse[3]; hParams.GetVector(1, impulse);
+	if (hParams.IsNull(1)) return MRES_Ignored;
+	int player = hParams.Get(1);
+	int engi = GetPlayerEntity(building);
+	if (Client_IsValid(player) && Client_IsValid(engi) && !CanClientsPvP(engi,player)) {
+		hReturn.Value = false;
+		return MRES_Override;//idk what whacky stuff valve is doing there
+	}
 	return MRES_Ignored;
 }
 
@@ -552,15 +764,17 @@ static void SDKHookClient(int client) {
 }
 
 public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3]) {
-	if (victim == attacker || !Client_IsValid(attacker) || CanClientsPvP(victim, attacker)) {
+	if (!isActive || !Client_IsValid(attacker) || CanClientsPvP(victim, attacker)) {
+		//allow damage
 		return Plugin_Continue;
 	}
+	//block damage
 	damage = 0.0;
 	ScaleVector(damageForce, 0.0);
 	return Plugin_Handled;
 }
 static void OnClientSpawnPost(int client) {
-	if (GetClientTeam(client)<=1) return;
+	if (GetClientTeam(client)<=1 || IsFakeClient(client)) return;
 	UpdateEntityFlagsGlobalPvP(client, globalPvP[client]);
 	if (clientFirstSpawn[client]) {
 		clientFirstSpawn[client] = false;
@@ -574,9 +788,10 @@ public void OnInventoryApplicationPost(Event event, const char[] name, bool dont
 
 public void TF2_OnConditionAdded(int client, TFCond condition) {
 	int provider;
+	if (!isActive) return;
 	if (ArrayFind(condition, pvpConditions, sizeof(pvpConditions))>=0 &&
 		(provider = TF2Util_GetPlayerConditionProvider(client, condition))>0 &&
-		provider != client && !CanClientsPvP(client, provider)) {
+		!CanClientsPvP(client, provider)) {
 		TF2_RemoveCondition(client, condition);
 	}
 }
@@ -585,7 +800,7 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (!Client_IsIngame(client)) return;
 	int ci;
 	if (TF2_GetClientTeam(client)==TFTeam_Blue) ci++;
-	if (pvp) {
+	if (pvp || !isActive) {
 		if (noTargetPlayers)
 			SetEntityFlags(client, GetEntityFlags(client) &~ (FL_NOTARGET));
 	} else {
@@ -596,6 +811,12 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (usePlayerStateColors)
 		SetPlayerColor(client, playerStateColors[ci][0], playerStateColors[ci][1], playerStateColors[ci][2], playerStateColors[ci][3]);
 }
+
+//endregion
+
+//region natives
+
+//TODO
 
 //endregion
 

@@ -36,6 +36,28 @@
 					}
 				}
 			}
+			"CObjectSentrygun_ValidTargetPlayer"
+			{
+				"signature" "CObjectSentrygun_ValidTargetPlayer"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "entity"
+				"arguments"
+				{
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+					"vector1"
+					{
+						"type" "vectorptr"
+					}
+					"vector2"
+					{
+						"type" "vectorptr"
+					}
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -58,6 +80,12 @@
 				"library" "server"
 				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x53\x57\x8B\xF9\x8D\x8F\xB0\x19\x00\x00\xE8\xBB\x7B\x03\x00"
 				"linux" "@_ZN9CTFPlayer27ApplyGenericPushbackImpulseERK6VectorPS_"
+			}
+			"CObjectSentrygun_ValidTargetPlayer"
+			{
+				"library" "server"
+				"windows" "\x55\x8B\xEC\x51\x53\x8B\x5D\x08\x57\x89\x4D\xFC\x8D\xBB\xB0\x19\x00\x00"
+				"linux" "@_ZN16CObjectSentrygun17ValidTargetPlayerEP9CTFPlayerRK6VectorS4_"
 			}
 		}
 	}

@@ -1,5 +1,13 @@
 "Phrases"
 {
+	"Plugin now active"
+	{
+		"en"	"{darkviolet}[PvP]{default} Plugin now active! Have a safe game"
+	}
+	"Plugin now inactive"
+	{
+		"en"	"{darkviolet}[PvP]{default} Plugin now inactive! Enjoy regular killing"
+	}
 	"SettingsMenuTitle"
 	{
 		"en"	"Opt In PvP"
@@ -110,5 +118,47 @@
 	"You are allowing pair pvp"
 	{
 		"en"	"{darkviolet}[PvP]{default} Players can request {azure}Pair PvP{default} with you again."
+	}
+	"Use command again to toggle ignore"
+	{
+		"en"	"{darkviolet}[PvP]{default} Use the command again to ignore further requests"
+	}
+	"Someone forced map pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} forced {goldenrod}Global PvP{default} for the map"
+	}
+	"You forced map pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You forced {goldenrod}Global PvP{default} for the map"
+	}
+	"Someone reset map pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} has reset {goldenrod}Global PvP{default} back to personal settings"
+	}
+	"You reset map pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You've reset {goldenrod}Global PvP{default} for everyone"
+	}
+	"Someone forced your global pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} forced you into {goldenrod}Global PvP{default}"
+	}
+	"You forced someones global pvp"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You forced {1} to {goldenrod}Global PvP{default}"
+	}
+	"Someone reset your global pvp"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} has reset your {goldenrod}Global PvP{default} to personal settings"
+	}
+	"You reset someones global pvp"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s {goldenrod}Global PvP{default}"
 	}
 }
