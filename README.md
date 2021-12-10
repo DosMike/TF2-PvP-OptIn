@@ -1,15 +1,18 @@
 # PvP Opt In
 By default no pvp and pass through enemy team players.
 
+This plugin was written as alternative to /friendly plugins as players usually forgot to enable it or were unhappy with how collision groups mess up certain things like elevators. So hopefully by putting all that on it's head, there wont ever be the need to report for RDM again!
+
 ### Features:
 
 - Global PvP toggle
-- Pair PvP via invites
+- Pair PvP via invites, player can disable invites
 - Walk through enemies base on pvp state
 - Color players based on pvp state
 - Sentries and bots ignore non-pvp players
 - Fully translatable
-- Block various conditions between non-pvp players
+- Blocks various conditions between non-pvp players
+- Prevent players pushing eachother with e.g. loose cannon outside of pvp
 - Generates a config at cfg/sourcemod/plugin.pvpoptin.cfg
 
 ### ConVars:
