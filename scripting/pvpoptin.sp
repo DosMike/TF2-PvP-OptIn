@@ -8,7 +8,7 @@
 #include <dhooks>
 #include <tf2utils>
 
-#define PLUGIN_VERSION "21w49c"
+#define PLUGIN_VERSION "21w49d"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -67,6 +67,7 @@ static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
 static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
 static bool detoured_CObjectSentrygun_ValidTargetPlayer;
 
+static ConVar cvar_Version;
 static ConVar cvar_JoinForceState;
 static int joinForceState;
 static ConVar cvar_NoCollide;
@@ -114,7 +115,8 @@ public void OnPluginStart() {
 		delete nbdata;
 	}
 	
-	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Public);
+	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
+	RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "End all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
@@ -136,6 +138,7 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_win", OnRoundStateChange);
 	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
 	
+	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
 	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", FCVAR_ARCHIVE, true, -1.0, true, 1.0);
 	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", FCVAR_ARCHIVE, true, 0.0, true, 2.0);
 	cvar_NoTarget = CreateConVar( "pvp_notarget", "0", "Add NOTARGET to players outside global pvp. This will probably break stuff!", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
@@ -146,6 +149,7 @@ public void OnPluginStart() {
 	cvar_ColorGlobalOffRed = CreateConVar( "pvp_playertaint_redoff", "255 255 225", "Color for players on RED with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
 	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
 	//hook cvars and load current values
+	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
 	hookAndLoadCvar(cvar_NoCollide, OnCVarChanged_NoCollision);
 	hookAndLoadCvar(cvar_NoTarget, OnCVarChanged_NoTarget);
@@ -349,6 +353,9 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 //endregion
 
 //region cvar handling
+public void OnCVarChanged_Version(ConVar convar, const char[] oldValue, const char[] newValue) {
+	if (!StrEqual(newValue, PLUGIN_VERSION)) convar.SetString(PLUGIN_VERSION);
+}
 public void OnCVarChanged_JoinForceState(ConVar convar, const char[] oldValue, const char[] newValue) {
 	joinForceState = convar.IntValue;
 }
