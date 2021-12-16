@@ -64,7 +64,7 @@ enum eEnabledState(<<=1) {
 static bool isActive;
 static eGameState currentGameState;
 static eEnabledState globalPvP[MAXPLAYERS+1];
-static eEnabledState mirrorDamage[MAXPLAYERS+1];
+static eEnabledState mirrorDamage[MAXPLAYERS+1]; //will never mirror if CanClientsPvP returns true
 static bool allowTauntKilled[MAXPLAYERS+1];
 static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1];
 static int pairPvPrequest[MAXPLAYERS+1];
@@ -128,6 +128,8 @@ public void OnPluginStart() {
 	
 	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
 	RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
+	RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
+	RegClientCookie(COOKIE_TAUNTKILL, "Client is find with being taunt-killed for funnies", CookieAccess_Private);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "End all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
