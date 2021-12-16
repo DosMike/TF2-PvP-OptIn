@@ -8,7 +8,7 @@
 #include <dhooks>
 #include <tf2utils>
 
-#define PLUGIN_VERSION "21w49d"
+#define PLUGIN_VERSION "21w50a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -72,8 +72,6 @@ static ConVar cvar_JoinForceState;
 static int joinForceState;
 static ConVar cvar_NoCollide;
 static int noCollideState;
-static ConVar cvar_NoTarget;
-static bool noTargetPlayers;
 static ConVar cvar_ActiveStates;
 static eGameState activeGameStates;
 static ConVar cvar_UsePlayerColors;
@@ -141,7 +139,6 @@ public void OnPluginStart() {
 	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
 	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", FCVAR_ARCHIVE, true, -1.0, true, 1.0);
 	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", FCVAR_ARCHIVE, true, 0.0, true, 2.0);
-	cvar_NoTarget = CreateConVar( "pvp_notarget", "0", "Add NOTARGET to players outside global pvp. This will probably break stuff!", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
 	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", FCVAR_ARCHIVE);
 	cvar_UsePlayerColors = CreateConVar( "pvp_playertaint_enable", "1", "Can be used to disable player tainting based on pvp state", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
 	cvar_ColorGlobalOnRed = CreateConVar( "pvp_playertaint_redon", "125 125 255", "Color for players on RED with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
@@ -152,7 +149,6 @@ public void OnPluginStart() {
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
 	hookAndLoadCvar(cvar_NoCollide, OnCVarChanged_NoCollision);
-	hookAndLoadCvar(cvar_NoTarget, OnCVarChanged_NoTarget);
 	hookAndLoadCvar(cvar_ActiveStates, OnCVarChanged_ActiveStates);
 	hookAndLoadCvar(cvar_UsePlayerColors, OnCVarChanged_UsePlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOnRed, OnCVarChanged_PlayerTaint);
@@ -362,9 +358,6 @@ public void OnCVarChanged_JoinForceState(ConVar convar, const char[] oldValue, c
 public void OnCVarChanged_NoCollision(ConVar convar, const char[] oldValue, const char[] newValue) {
 	noCollideState = convar.IntValue;
 }
-public void OnCVarChanged_NoTarget(ConVar convar, const char[] oldValue, const char[] newValue) {
-	noTargetPlayers = convar.BoolValue;
-}
 public void OnCVarChanged_ActiveStates(ConVar convar, const char[] oldValue, const char[] newValue) {
 	eGameState activeStates;
 	if (StrContains(newValue,"all",false)!=-1) { activeStates = view_as<eGameState>(-1); }
@@ -542,23 +535,25 @@ public Action Command_ForcePvP(int client, int args) {
 		} else {
 			int target[MAXPLAYERS];
 			bool tn_is_ml;
-			int matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY, tname, sizeof(tname), tn_is_ml);
+			int matches = ProcessTargetString(pattern, client, target, MAXPLAYERS, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_IMMUNITY, tname, sizeof(tname), tn_is_ml);
 			if (matches < 1) {
 				ReplyToTargetError(client, matches);
 			} else {
-				CSkipNextClient(client);
-				if (pvpon) {
-					CPrintToChatAll("%t","Someone forced your global pvp", client);
-					CReplyToCommand(client, "%t", "You forced someones global pvp", tname);
-				} else {
-					CPrintToChatAll("%t","Someone reset your global pvp", client);
-					CReplyToCommand(client, "%t", "You reset someones global pvp", tname);
-				}
 				for (int i;i<matches;i++) {
 					int player = target[i];
-					if (!Client_IsIngame(i) ||IsFakeClient(player)) continue;
+					if (!Client_IsIngame(i)) continue;
 					forcePvP[player] = pvpon;
 					UpdateEntityFlagsGlobalPvP(player, IsGlobalPvP(player));
+					if (pvpon) {
+						CPrintToChat(player, "%t","Someone forced your global pvp", client);
+					} else {
+						CPrintToChat(player, "%t","Someone reset your global pvp", client);
+					}
+				}
+				if (pvpon) {
+					CReplyToCommand(client, "%t", "You forced someones global pvp", tname);
+				} else {
+					CReplyToCommand(client, "%t", "You reset someones global pvp", tname);
 				}
 			}
 		}
@@ -807,14 +802,7 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (!Client_IsIngame(client)) return;
 	int ci;
 	if (TF2_GetClientTeam(client)==TFTeam_Blue) ci++;
-	if (pvp || !isActive) {
-		if (noTargetPlayers)
-			SetEntityFlags(client, GetEntityFlags(client) &~ (FL_NOTARGET));
-	} else {
-		if (noTargetPlayers)
-			SetEntityFlags(client, GetEntityFlags(client) | FL_NOTARGET);
-		ci+=2;
-	}
+	if (!pvp && isActive) ci+=2;
 	if (usePlayerStateColors)
 		SetPlayerColor(client, playerStateColors[ci][0], playerStateColors[ci][1], playerStateColors[ci][2], playerStateColors[ci][3]);
 }
