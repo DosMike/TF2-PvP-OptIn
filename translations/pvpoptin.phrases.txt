@@ -189,4 +189,24 @@
 		"#format" "{1:s}"
 		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s {goldenrod}Global PvP{default}"
 	}
+	"Someone forced your mirror damage"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} forced you to mirror damage"
+	}
+	"You forced someones mirror damage"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You forced {1} to mirror damage"
+	}
+	"Someone reset your mirror damage"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} has reset your mirror damage to personal settings"
+	}
+	"You reset someones mirror damage"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s mirror damage"
+	}
 }

@@ -133,7 +133,9 @@ public void OnPluginStart() {
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "End all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
+	RegConsoleCmd("sm_mirrorme", Command_MirrorMe, "Turn on mirror damage for attacking non-PvP players");
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
+	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
@@ -612,6 +614,49 @@ public Action Command_ForcePvP(int client, int args) {
 			}
 		}
 	}
+	return Plugin_Handled;
+}
+
+public Action Command_Mirror(int client, int args) {
+	if (GetCmdArgs()!=2) {
+		char name[16];
+		GetCmdArg(0, name, sizeof(name));
+		ReplyToCommand(client, "Usage: %s <target> <1/0>", name);
+	} else {
+		char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
+		GetCmdArg(2,pattern, sizeof(pattern));
+		bool force = StringToInt(pattern) != 0;
+		GetCmdArg(1,pattern, sizeof(pattern));
+		
+		int target[MAXPLAYERS];
+		bool tn_is_ml;
+		int matches = ProcessTargetString(pattern, client, target, MAXPLAYERS, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_IMMUNITY, tname, sizeof(tname), tn_is_ml);
+		if (matches < 1) {
+			ReplyToTargetError(client, matches);
+		} else {
+			for (int i;i<matches;i++) {
+				int player = target[i];
+				if (!Client_IsIngame(i)) continue;
+				if (force) {
+					mirrorDamage[player] |= State_Forced;
+					CPrintToChat(player, "%t","Someone forced your mirror damage", client);
+				} else {
+					mirrorDamage[player] &=~ State_Forced;
+					CPrintToChat(player, "%t","Someone reset your mirror damage", client);
+				}
+			}
+			if (force) {
+				CReplyToCommand(client, "%t", "You forced someones mirror damage", tname);
+			} else {
+				CReplyToCommand(client, "%t", "You reset someones mirror damage", tname);
+			}
+		}
+	}
+	return Plugin_Handled;
+}
+
+public Action Command_MirrorMe(int client, int args) {
+	SetMirroredState(client, !(mirrorDamage[client]&State_Enabled));
 	return Plugin_Handled;
 }
 
