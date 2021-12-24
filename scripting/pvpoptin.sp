@@ -17,7 +17,7 @@ public Plugin myinfo = {
 	author = "reBane",
 	description = "Opt In PvP for LazyPurple Silly Servers",
 	version = PLUGIN_VERSION,
-	url = "N/A"
+	url = "https://github.com/DosMike/TF2-PvP-OptIn"
 }
 
 // will be double checked with TF2Util_GetPlayerConditionProvider
@@ -61,21 +61,44 @@ enum eEnabledState(<<=1) {
 	State_BotAlways, //force-enabled in a way that can't turn off because bots
 }
 
-static bool isActive;
+enum ePlayerVsAiFlags {
+	PvA_Zombies_Ignored = 0, //players cant hurt zombies, zombies ignore players
+	PvA_Zombies_Never = 0x01, //player/buildings are no target, but players can hurt zombies
+	PvA_Zombies_GlobalPvP = 0x02, //Zombies will track down players in global pvp
+	PvA_Zombies_Always = 0x03, //this counts as PvE and thus zombies vs players is always on
+	PvA_Bosses_Ignored = 0, //bosses ignore humans, players can't hurt bosses
+	PvA_Bosses_Never = 0x10, //player/buildings are no target, but players can hurt bosses
+	PvA_Bosses_GlobalPvP = 0x20, //bosses will track down players in global pvp
+	PvA_Bosses_Always = 0x30, //this counts as PvE and this bosses vs players is always on
+	PvA_ZOMBIES = 0x0f,
+	PvA_BOSSES = 0xf0,
+}
+
+static bool isActive; //plugin active flag changed depending on game state
 static eGameState currentGameState;
-static eEnabledState globalPvP[MAXPLAYERS+1];
+static eEnabledState globalPvP[MAXPLAYERS+1]; //have turned global pvp on
 static eEnabledState mirrorDamage[MAXPLAYERS+1]; //will never mirror if CanClientsPvP returns true
 static bool allowTauntKilled[MAXPLAYERS+1];
-static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1];
-static int pairPvPrequest[MAXPLAYERS+1];
-static bool pairPvPignored[MAXPLAYERS+1];
-static bool clientFirstSpawn[MAXPLAYERS+1];
+static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1]; //double reffed so order doesn't matter for quicker lookups
+static int pairPvPrequest[MAXPLAYERS+1]; //invite requests
+static bool pairPvPignored[MAXPLAYERS+1]; //invites disabled
+static bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill first actual spawn
+//maybe have client settings overwrite zombie/boss behaviour (force attack me)
+
 static DHookSetup hdl_INextBot_IsEnemy;
 static bool detoured_INextBot_IsEnemy;
+static DHookSetup hdl_CZombieAttack_IsPotentiallyChaseable;
+static bool detoured_CZombieAttack_IsPotentiallyChaseable;
+static DHookSetup hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable;
+static bool detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable;
+static DHookSetup hdl_CMerasmusAttack_IsPotentiallyChaseable;
+static bool detoured_CMerasmusAttack_IsPotentiallyChaseable;
 static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
 static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
 static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
 static bool detoured_CObjectSentrygun_ValidTargetPlayer;
+static DHookSetup hdl_CObjectSentrygun_FoundTarget;
+static bool detoured_CObjectSentrygun_FoundTarget;
 
 static ConVar cvar_Version;
 static ConVar cvar_JoinForceState;
@@ -91,14 +114,20 @@ static ConVar cvar_ColorGlobalOnBlu;
 static ConVar cvar_ColorGlobalOffRed;
 static ConVar cvar_ColorGlobalOffBlu;
 static int playerStateColors[4][4];
+static ConVar cvar_BuildingsVersusZombies;
+static ConVar cvar_BuildingsVersusBosses;
+static ePlayerVsAiFlags pvaBuildings;
+static ConVar cvar_PlayersVersusZombies;
+static ConVar cvar_PlayersVersusBosses;
+static ePlayerVsAiFlags pvaPlayers;
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
 #define COOKIE_TAUNTKILL "canBeTauntKilled"
 #define COOKIE_MIRRORME "mirrorPvPDamage"
 
-#define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && globalPvP[%1]!=State_ExternalOff)
-#define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && mirrorDamage[%1]!=State_ExternalOff)
+#define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && !(globalPvP[%1]&State_ExternalOff))
+#define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && !(mirrorDamage[%1]&State_ExternalOff))
 
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
@@ -118,12 +147,16 @@ public void OnPluginStart() {
 	//to find this signature you can go up Spawn function through powerups to bonuspacks.
 	//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
 	//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
-	GameData nbdata = new GameData("pvpoptin.games");
-	if (nbdata != INVALID_HANDLE) {
-		hdl_INextBot_IsEnemy = DHookCreateFromConf(nbdata, "INextBot_IsEnemy");
-		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(nbdata, "CTFPlayer_ApplyGenericPushbackImpulse");
-		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(nbdata, "CObjectSentrygun_ValidTargetPlayer");
-		delete nbdata;
+	GameData pvpfundata = new GameData("pvpoptin.games");
+	if (pvpfundata != INVALID_HANDLE) {
+		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot_IsEnemy");
+		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
+		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
+		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack_IsPotentiallyChaseable");
+		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
+		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
+		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
+		delete pvpfundata;
 	}
 	
 	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
@@ -154,19 +187,27 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
 	
 	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
-	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", FCVAR_ARCHIVE, true, -1.0, true, 1.0);
-	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", FCVAR_ARCHIVE, true, 0.0, true, 2.0);
-	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", FCVAR_ARCHIVE);
-	cvar_UsePlayerColors = CreateConVar( "pvp_playertaint_enable", "1", "Can be used to disable player tainting based on pvp state", FCVAR_ARCHIVE, true, 0.0, true, 1.0);
-	cvar_ColorGlobalOnRed = CreateConVar( "pvp_playertaint_redon", "125 125 255", "Color for players on RED with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
-	cvar_ColorGlobalOnBlu = CreateConVar( "pvp_playertaint_bluon", "255 125 125", "Color for players on BLU with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
-	cvar_ColorGlobalOffRed = CreateConVar( "pvp_playertaint_redoff", "255 255 225", "Color for players on RED with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
-	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", FCVAR_ARCHIVE);
+	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", _, true, -1.0, true, 1.0);
+	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", _, true, 0.0, true, 2.0);
+	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", _);
+	cvar_BuildingsVersusZombies = CreateConVar( "pvp_buildings_vs_zombies", "2", "Control sentry <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
+	cvar_BuildingsVersusBosses = CreateConVar( "pvp_buildings_vs_bosses", "2", "Control sentry <-> boss targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
+	cvar_PlayersVersusZombies = CreateConVar( "pvp_players_vs_zombies", "1", "Control player <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
+	cvar_PlayersVersusBosses = CreateConVar( "pvp_players_vs_bosses", "1", "Control player <-> boss targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
+	cvar_UsePlayerColors = CreateConVar( "pvp_playertaint_enable", "1", "Can be used to disable player tainting based on pvp state", _, true, 0.0, true, 1.0);
+	cvar_ColorGlobalOnRed = CreateConVar( "pvp_playertaint_redon", "125 125 255", "Color for players on RED with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
+	cvar_ColorGlobalOnBlu = CreateConVar( "pvp_playertaint_bluon", "255 125 125", "Color for players on BLU with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
+	cvar_ColorGlobalOffRed = CreateConVar( "pvp_playertaint_redoff", "255 255 225", "Color for players on RED with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
+	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
 	//hook cvars and load current values
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
 	hookAndLoadCvar(cvar_NoCollide, OnCVarChanged_NoCollision);
 	hookAndLoadCvar(cvar_ActiveStates, OnCVarChanged_ActiveStates);
+	hookAndLoadCvar(cvar_BuildingsVersusZombies, OnCVarChanged_BuildingsVersusZombies);
+	hookAndLoadCvar(cvar_BuildingsVersusBosses, OnCVarChanged_BuildingsVersusBosses);
+	hookAndLoadCvar(cvar_PlayersVersusZombies, OnCVarChanged_PlayersVersusZombies);
+	hookAndLoadCvar(cvar_PlayersVersusBosses, OnCVarChanged_PlayersVersusBosses);
 	hookAndLoadCvar(cvar_UsePlayerColors, OnCVarChanged_UsePlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOnRed, OnCVarChanged_PlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOnBlu, OnCVarChanged_PlayerTaint);
@@ -202,6 +243,21 @@ static void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
 	}
+	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CZombieAttack_IsPotentiallyChaseable) {
+		detoured_CZombieAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, false, Detour_CZombieAttack_IsPotentiallyChaseable);
+	} else {
+		PrintToServer("Could not hook CZombieAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
+	}
+	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable) {
+		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+	} else {
+		PrintToServer("Could not hook CHeadlessHatmanAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
+	}
+	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CMerasmusAttack_IsPotentiallyChaseable) {
+		detoured_CMerasmusAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+	} else {
+		PrintToServer("Could not hook CMerasmusAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
+	}
 	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && !detoured_CTFPlayer_ApplyGenericPushbackImpulse) {
 		detoured_CTFPlayer_ApplyGenericPushbackImpulse = DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
 	} else {
@@ -212,14 +268,27 @@ static void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CObjectSentrygun::ValidTargetPlayer(CTFPlayer*,Vector*,Vector*). Whack!");
 	}
+	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && !detoured_CObjectSentrygun_FoundTarget) {
+		detoured_CObjectSentrygun_FoundTarget = DHookEnableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
+	} else {
+		PrintToServer("Could not hook CObjectSentrygun::FoundTarget(CTFPlayer*,Vector*,bool). Turrets will always track zombies and bosses!");
+	}
 }
 static void DHooksDetach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
 		detoured_INextBot_IsEnemy ^= DHookDisableDetour(hdl_INextBot_IsEnemy, false, Detour_INextBot_IsEnemy);
+	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CZombieAttack_IsPotentiallyChaseable)
+		detoured_CZombieAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, false, Detour_CZombieAttack_IsPotentiallyChaseable);
+	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable)
+		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CMerasmusAttack_IsPotentiallyChaseable)
+		detoured_CMerasmusAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
 	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && detoured_CTFPlayer_ApplyGenericPushbackImpulse)
 		detoured_CTFPlayer_ApplyGenericPushbackImpulse ^= DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
 	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && detoured_CObjectSentrygun_ValidTargetPlayer)
 		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, false, Detour_CObjectSentrygun_ValidTargetPlayer);
+	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FoundTarget)
+		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 }
 
 public void OnMapEnd() {
@@ -425,6 +494,62 @@ public void OnCVarChanged_ActiveStates(ConVar convar, const char[] oldValue, con
 	}
 	activeGameStates = activeStates;
 	UpdateActiveState(currentGameState);
+}
+public void OnCVarChanged_BuildingsVersusZombies(ConVar convar, const char[] oldValue, const char[] newValue) {
+	ePlayerVsAiFlags value;
+	switch (convar.IntValue) {
+		case -1: value = PvA_Zombies_Ignored;
+		case 0: value = PvA_Zombies_Never;
+		case 1: value = PvA_Zombies_GlobalPvP;
+		case 2: value = PvA_Zombies_Always;
+		default: {
+			PrintToServer("Invalid value for Building VS Zombies, using -1");
+			value = PvA_Zombies_Ignored;
+		}
+	}
+	pvaBuildings = (pvaBuildings & PvA_BOSSES) | value;
+}
+public void OnCVarChanged_BuildingsVersusBosses(ConVar convar, const char[] oldValue, const char[] newValue) {
+	ePlayerVsAiFlags value;
+	switch (convar.IntValue) {
+		case -1: value = PvA_Bosses_Ignored;
+		case 0: value = PvA_Bosses_Never;
+		case 1: value = PvA_Bosses_GlobalPvP;
+		case 2: value = PvA_Bosses_Always;
+		default: {
+			PrintToServer("Invalid value for Building VS Bosses, using -1");
+			value = PvA_Bosses_Ignored;
+		}
+	}
+	pvaBuildings = (pvaBuildings & PvA_ZOMBIES) | value;
+}
+public void OnCVarChanged_PlayersVersusZombies(ConVar convar, const char[] oldValue, const char[] newValue) {
+	ePlayerVsAiFlags value;
+	switch (convar.IntValue) {
+		case -1: value = PvA_Zombies_Ignored;
+		case 0: value = PvA_Zombies_Never;
+		case 1: value = PvA_Zombies_GlobalPvP;
+		case 2: value = PvA_Zombies_Always;
+		default: {
+			PrintToServer("Invalid value for Player VS Zombies, using -1");
+			value = PvA_Zombies_Ignored;
+		}
+	}
+	pvaPlayers = (pvaPlayers & PvA_BOSSES) | value;
+}
+public void OnCVarChanged_PlayersVersusBosses(ConVar convar, const char[] oldValue, const char[] newValue) {
+	ePlayerVsAiFlags value;
+	switch (convar.IntValue) {
+		case -1: value = PvA_Bosses_Ignored;
+		case 0: value = PvA_Bosses_Never;
+		case 1: value = PvA_Bosses_GlobalPvP;
+		case 2: value = PvA_Bosses_Always;
+		default: {
+			PrintToServer("Invalid value for Player VS Bosses, using -1");
+			value = PvA_Bosses_Ignored;
+		}
+	}
+	pvaPlayers = (pvaPlayers & PvA_ZOMBIES) | value;
 }
 public void OnCVarChanged_UsePlayerTaint(ConVar convar, const char[] oldValue, const char[] newValue) {
 	if (!(usePlayerStateColors = convar.BoolValue)) {
@@ -807,20 +932,7 @@ static void SetTauntKillable(int client, bool enabled) {
 	if (enabled) CPrintToChat(client, "%t", "Taunt Kills Enabled");
 	else CPrintToChat(client, "%t", "Taunt Kills Disabled");
 }
-/**
- * if the entity is a client, return the client. otherwise try to resolve m_hBuilder
- * @return the player associated with this entity or INVALID_ENT_REFERENCE if none
- */
-static int GetPlayerEntity(int entity) {
-	if (1<=entity<=MaxClients) {
-		return entity;
-	} else if (HasEntProp(entity, Prop_Send, "m_hBuilder")) {
-		int tmp=GetEntPropEnt(entity, Prop_Send, "m_hBuilder");
-		if (1<=tmp<=MaxClients)
-			return tmp;
-	}
-	return INVALID_ENT_REFERENCE;
-}
+
 static bool CanClientsPvP(int client1, int client2) {
 	return client1==client2 || globalPvP[0]!=State_Disabled || (IsGlobalPvP(client1) && IsGlobalPvP(client2)) || pairPvP[client1][client2];
 }
@@ -836,7 +948,38 @@ static bool CanClientsPvP(int client1, int client2) {
 public MRESReturn Detour_INextBot_IsEnemy(Address pThis, DHookReturn hReturn, DHookParam hParams) {
 	int target = hParams.Get(1);
 	int player = GetPlayerEntity(target);
-	if (player != INVALID_ENT_REFERENCE && !IsGlobalPvP(player) && !IsGlobalPvP(0)) {
+	if (Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0)) {
+		hReturn.Value = false;
+		return MRES_Override;
+	}
+	return MRES_Ignored;
+}
+
+public MRESReturn Detour_CZombieAttack_IsPotentiallyChaseable(DHookReturn hReturn, DHookParam hParams) {
+	if (hParams.IsNull(2))
+		return MRES_Ignored;// we're not changing behaviour
+	int player = hParams.Get(2);
+	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_ZOMBIES;
+	bool blocked;
+	if (targetMode == PvA_Zombies_Always) return MRES_Ignored;
+	else if (targetMode != PvA_Zombies_GlobalPvP) blocked = true;
+	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
+	if (blocked) {
+		hReturn.Value = false;
+		return MRES_Override;
+	}
+	return MRES_Ignored;
+}
+public MRESReturn Detour_BossAttack_IsPotentiallyChaseable(DHookReturn hReturn, DHookParam hParams) {
+	if (hParams.IsNull(2))
+		return MRES_Ignored;// we're not changing behaviour
+	int player = hParams.Get(2);
+	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
+	bool blocked;
+	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
+	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
+	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
+	if (blocked) {
 		hReturn.Value = false;
 		return MRES_Override;
 	}
@@ -855,13 +998,34 @@ public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHook
 public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookReturn hReturn, DHookParam hParams) {
 //	float impulse[3]; hParams.GetVector(1, impulse);
 	if (hParams.IsNull(1)) return MRES_Ignored;
-	int player = hParams.Get(1);
+	int target = hParams.Get(1);
 	int engi = GetPlayerEntity(building);
-	if (Client_IsValid(player) && Client_IsValid(engi) && !CanClientsPvP(engi,player)) {
+	if (Client_IsValid(target) && Client_IsValid(engi) && !CanClientsPvP(engi,target)) {
 		hReturn.Value = false;
-		return MRES_Override;//idk what whacky stuff valve is doing there
+		return MRES_Override; //idk what whacky stuff valve is doing there
 	}
 	return MRES_Ignored;
+}
+
+public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam hParams) {
+	if (hParams.IsNull(1)) return MRES_Ignored;
+	int target = hParams.Get(1);
+	int engi = GetPlayerEntity(building);
+	bool blocked;
+	if (IsEntityZombie(target)) {
+		//we are trying to target a zombie, are we allowed to do at all?
+		ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
+		if (mode == PvA_Zombies_Always) blocked = false;
+		else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
+		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+	} else if (IsEntityBoss(target)) {
+		//we are trying to target a boss, are we allowed to do at all?
+		ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
+		if (mode == PvA_Bosses_Always) blocked = false;
+		else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
+		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+	}
+	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
 }
 
 //keep as simple and quick as possible
@@ -883,6 +1047,10 @@ public Action CH_PassFilter(int ent1, int ent2, bool &result) {
 public void OnEntityCreated(int entity, const char[] classname) {
 	if (StrEqual(classname, "player")) {
 		SDKHookClient(entity);
+	} else if (StrEqual(classname, "tf_zombie")) {
+		SDKHook(entity, SDKHook_OnTakeDamage, OnZombieTakeDamage);
+	} else if (StrEqual(classname, "merasmus") || StrEqual(classname, "headless_hatman") || StrEqual(classname, "eyeball_boss")) {
+		SDKHook(entity, SDKHook_OnTakeDamage, OnBossTakeDamage);
 	}
 }
 
@@ -891,8 +1059,34 @@ static void SDKHookClient(int client) {
 	SDKHook(client, SDKHook_SpawnPost, OnClientSpawnPost);
 }
 
+public Action OnZombieTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
+	if (!isActive || !IsValidEdict(attacker)) return Plugin_Continue;
+	if (1<=attacker<=MaxClients && (pvaPlayers&PvA_ZOMBIES)==PvA_Zombies_Ignored) {
+		return Plugin_Handled;
+	} else {
+		int player = GetPlayerEntity(attacker);
+		if (1<=player<=MaxClients && (pvaBuildings&PvA_ZOMBIES)==PvA_Zombies_Ignored) {
+			return Plugin_Handled;
+		}
+	}
+	return Plugin_Continue;
+}
+public Action OnBossTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
+	if (!isActive || !IsValidEdict(attacker)) return Plugin_Continue;
+	if (1<=attacker<=MaxClients && (pvaPlayers&PvA_BOSSES)==PvA_Bosses_Ignored) {
+		return Plugin_Handled;
+	} else {
+		int player = GetPlayerEntity(attacker);
+		if (1<=player<=MaxClients && (pvaBuildings&PvA_BOSSES)==PvA_Bosses_Ignored) {
+			return Plugin_Handled;
+		}
+	}
+	return Plugin_Continue;
+}
 public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
-	if (!isActive || !Client_IsValid(attacker)) 
+	// zombies and clients should not even target players
+	// but stray projectiles / spray might still hit them
+	if (!isActive || !Client_IsValid(attacker))
 		return Plugin_Continue;
 	else if (CanClientsPvP(victim, attacker))
 		return Plugin_Continue; //pvp is on, go nuts
@@ -974,6 +1168,34 @@ static int ArrayFind(any needle, const any[] haystack, int haystacksize=0) {
 		else if (val == needle) return i;
 	}
 	return -1;
+}
+
+/**
+ * if the entity is a client, return the client. otherwise try to resolve m_hBuilder
+ * @return the player associated with this entity or INVALID_ENT_REFERENCE if none
+ */
+static int GetPlayerEntity(int entity) {
+	if (1<=entity<=MaxClients) {
+		return entity;
+	} else if (HasEntProp(entity, Prop_Send, "m_hBuilder")) {
+		int tmp=GetEntPropEnt(entity, Prop_Send, "m_hBuilder");
+		if (1<=tmp<=MaxClients)
+			return tmp;
+	}
+	return INVALID_ENT_REFERENCE;
+}
+
+static bool IsEntityZombie(int entity) {
+	if (entity == INVALID_ENT_REFERENCE) return false;
+	char cn[64];
+	GetEntityClassname(entity, cn, sizeof(cn));
+	return StrEqual(cn,"tf_zombie");
+}
+static bool IsEntityBoss(int entity) {
+	if (entity == INVALID_ENT_REFERENCE) return false;
+	char cn[64];
+	GetEntityClassname(entity, cn, sizeof(cn));
+	return (StrEqual(cn, "merasmus") || StrEqual(cn, "headless_hatman") || StrEqual(cn, "eyeball_boss"));
 }
 
 //endregion

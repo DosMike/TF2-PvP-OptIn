@@ -2,6 +2,62 @@
 {
 	"tf"
 	{
+		"Signatures"
+		{
+			"INextBot_IsEnemy"
+			{
+				"library" "server"
+				"linux" "@_ZNK8INextBot7IsEnemyEPK11CBaseEntity"
+				"windows" "\x55\x8B\xEC\x83\x7D\x08\x00\x75\x06\x32\xC0\x5D\xC2\x04\x00\x8B\x01\x56\xFF\x90\xB8\x00\x00\x00\x8B\xC8\xE8\x21\x27\xDF\xFF\x8B\x4D\x08\x8B\xF0\xE8\x17\x27\xDF\xFF\x33\xC9\x3B\xF0\x5E\x0F\x95\xC0"
+				// LKASM : 55 8B EC 83 7D 08 00 75 06 32 C0 5D C2 04 00 8B 01 56 FF 90 B8 00 00 00 8B C8 E8 21 27 DF FF 8B 4D 08 8B F0 E8 17 27 DF FF 33 C9 3B F0 5E 0F 95 C0
+				// MASK  : FF FF FF FF F8 00 FF FF 00 FF FF FF FF FF FF FF F8 FF FF F8 00 00 00 00 FF FF FF 00 00 00 00 FF F8 00 FF FF FF 00 00 00 00 FF FF FF FF FF FF FF C7
+			}
+			"CZombieAttack_IsPotentiallyChaseable"
+			{
+				"library" "server"
+				"linux" "@_ZN13CZombieAttack22IsPotentiallyChaseableEP7CZombieP20CBaseCombatCharacter"
+				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x56\x8B\x75\x0C\x85\xF6\x75\x09"
+			}
+			"CHeadlessHatmanAttack_IsPotentiallyChaseable"
+			{
+				"library" "server"
+				"linux" "@_ZN21CHeadlessHatmanAttack22IsPotentiallyChaseableEP15CHeadlessHatmanP9CTFPlayer"
+			}
+			"CMerasmusAttack_IsPotentiallyChaseable"
+			{
+				"library" "server"
+				"linux" "@_ZN15CMerasmusAttack22IsPotentiallyChaseableEP9CMerasmusP9CTFPlayer"
+			}
+			"CEyeballBoss_FindClosestVisibleVictim"
+			{
+				"library" "server"
+				"linux" "@_ZN12CEyeballBoss24FindClosestVisibleVictimEv"
+			}
+			"CTFPlayer_ApplyGenericPushbackImpulse"
+			{
+				"library" "server"
+				"linux" "@_ZN9CTFPlayer27ApplyGenericPushbackImpulseERK6VectorPS_"
+				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x53\x57\x8B\xF9\x8D\x8F\xB0\x19\x00\x00\xE8\xFB\x7D\x03\x00"
+				// LKASM : 55 8B EC 83 EC 0C 53 57 8B F9 8D 8F B0 19 00 00 E8 FB 7D 03 00
+				// MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00
+			}
+			"CObjectSentrygun_ValidTargetPlayer"
+			{
+				"library" "server"
+				"linux" "@_ZN16CObjectSentrygun17ValidTargetPlayerEP9CTFPlayerRK6VectorS4_"
+				"windows" "\x55\x8B\xEC\x51\x53\x8B\x5D\x08\x57\x89\x4D\xFC\x8D\xBB\xB0\x19\x00\x00"
+				// LKASM : 55 8B EC 51 53 8B 5D 08 57 89 4D FC 8D BB B0 19 00 00
+				// MASK  : FF FF FF FF FF FF F8 00 FF FF F8 00 FF F8 00 00 00 00
+			}
+			"CObjectSentrygun_FoundTarget"
+			{
+				"library" "server"
+				"linux" "@_ZN16CObjectSentrygun11FoundTargetEP11CBaseEntityRK6Vectorb"
+				"windows" "\x55\x8B\xEC\x83\xEC\x40\x56\x8B\xF1\x57\x8B\x7D\x08"
+				// LKASM : 55 8B EC 83 EC 40 56 8B F1 57 8B 7D 08
+				// MASK  : FF FF FF FF FF FF FF FF FF FF FF F8 00
+			}
+		}
 		"Functions"
 		{
 			"INextBot_IsEnemy"
@@ -17,6 +73,70 @@
 						"type" "cbaseentity"
 					}
 				}
+			}
+			// Hook skeletons chasing players
+			"CZombieAttack_IsPotentiallyChaseable"
+			{
+				"signature" "CZombieAttack_IsPotentiallyChaseable"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "ignore"
+				"arguments"
+				{
+					"zombie"
+					{
+						"type" "cbaseentity"
+					}
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+			// Hook headless hatman chasing players
+			"CHeadlessHatmanAttack_IsPotentiallyChaseable"
+			{
+				"signature" "CHeadlessHatmanAttack_IsPotentiallyChaseable"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "ignore"
+				"arguments"
+				{
+					"hatman"
+					{
+						"type" "cbaseentity"
+					}
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+			// Hook merasmus hatman chasing players
+			"CMerasmusAttack_IsPotentiallyChaseable"
+			{
+				"signature" "CMerasmusAttack_IsPotentiallyChaseable"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "ignore"
+				"arguments"
+				{
+					"merasmus"
+					{
+						"type" "cbaseentity"
+					}
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+			// Hook monoculus chasing players
+			"CEyeballBoss_FindClosestVisibleVictim" {
+				"signature" "CEyeballBoss_FindClosestVisibleVictim"
+				"callconv" "thiscall"
+				"return" "cbaseentity"
+				"this" "entity"
 			}
 			"CTFPlayer_ApplyGenericPushbackImpulse"
 			{
@@ -58,34 +178,27 @@
 					}
 				}
 			}
-		}
-		"Offsets"
-		{
-			"INextBot_GetNextBotCombatCharacter"
+			"CObjectSentrygun_FoundTarget"
 			{
-				"windows" "47"
-				"linux" "48"
-			}
-		}
-		"Signatures"
-		{
-			"INextBot_IsEnemy"
-			{
-				"library" "server"
-				"windows" "\x55\x8B\xEC\x83\x7D\x08\x00\x75\x06\x32\xC0\x5D\xC2\x04\x00\x8B\x01\x56\xFF\x90\xB8\x00\x00\x00\x8B\xC8\xE8\x31\x32\xDF\xFF"
-				"linux" "@_ZNK8INextBot7IsEnemyEPK11CBaseEntity"
-			}
-			"CTFPlayer_ApplyGenericPushbackImpulse"
-			{
-				"library" "server"
-				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x53\x57\x8B\xF9\x8D\x8F\xB0\x19\x00\x00\xE8\xBB\x7B\x03\x00"
-				"linux" "@_ZN9CTFPlayer27ApplyGenericPushbackImpulseERK6VectorPS_"
-			}
-			"CObjectSentrygun_ValidTargetPlayer"
-			{
-				"library" "server"
-				"windows" "\x55\x8B\xEC\x51\x53\x8B\x5D\x08\x57\x89\x4D\xFC\x8D\xBB\xB0\x19\x00\x00"
-				"linux" "@_ZN16CObjectSentrygun17ValidTargetPlayerEP9CTFPlayerRK6VectorS4_"
+				"signature" "CObjectSentrygun_FoundTarget"
+				"callconv" "thiscall"
+				"return" "void"
+				"this" "entity"
+				"arguments"
+				{
+					"player"
+					{
+						"type" "cbaseentity"
+					}
+					"vector"
+					{
+						"type" "vectorptr"
+					}
+					"bool"
+					{
+						"type" "bool"
+					}
+				}
 			}
 		}
 	}
