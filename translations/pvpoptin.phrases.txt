@@ -10,7 +10,7 @@
 	}
 	"SettingsMenuTitle"
 	{
-		"en"	"Opt In PvP"
+		"en"	"Opt In PvP\n \n'Mirror Damage' will hurt yourself if target is not in PvP.\n'Taunt Kill Me' allows other players to taunt kill you reguardless of PvP state."
 	}
 	"SettingsMenuGlobal"
 	{
@@ -19,6 +19,14 @@
 	"SettingsMenuIgnorePair"
 	{
 		"en"	"Ignore Pair PvP"
+	}
+	"SettingsMenuMirrorDamage"
+	{
+		"en"	"Mirror Damage"
+	}
+	"SettingsMenuTauntKills"
+	{
+		"en"	"Taunt Kill Me"
 	}
 	"Pick player for pvp"
 	{
@@ -123,6 +131,26 @@
 	{
 		"en"	"{darkviolet}[PvP]{default} Use the command again to ignore further requests"
 	}
+	"Mirror Damage Enabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Damage you deal to non-PvP players is now mirrored"
+	}
+	"Mirror Damage not Disabled, Forced"
+	{
+		"en"	"{darkviolet}[PvP]{default} Something is forcing mirror damage. Mirror damage will remain active during this condition."
+	}
+	"Mirror Damage Disabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Damage to non-PvP players is no longer mirrored"
+	}
+	"Taunt Kills Enabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Other players can now taunt-kill you"
+	}
+	"Taunt Kills Disabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} You can no longer be taunt-killed"
+	}
 	"Someone forced map pvp"
 	{
 		"#format" "{1:N}"
@@ -160,5 +188,25 @@
 	{
 		"#format" "{1:s}"
 		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s {goldenrod}Global PvP{default}"
+	}
+	"Someone forced your mirror damage"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} forced you to mirror damage"
+	}
+	"You forced someones mirror damage"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You forced {1} to mirror damage"
+	}
+	"Someone reset your mirror damage"
+	{
+		"#format" "{1:N}"
+		"en"	"{darkviolet}[PvP]{default} {1} has reset your mirror damage to personal settings"
+	}
+	"You reset someones mirror damage"
+	{
+		"#format" "{1:s}"
+		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s mirror damage"
 	}
 }
