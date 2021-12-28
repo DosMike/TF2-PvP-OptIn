@@ -13,7 +13,12 @@ This plugin was written as alternative to /friendly plugins as players usually f
 - Fully translatable
 - Blocks various conditions between non-pvp players
 - Prevent players pushing eachother with e.g. loose cannon outside of pvp
+- Bosses and Skeleton ignore players that are not in PvP (see ConVars)
 - Generates a config at cfg/sourcemod/plugin.pvpoptin.cfg
+
+*Note on Supressing AI Targeting:* Due to how the targeting for sentries and some bosses is implemented,
+supressing a player or entity from being targeted results in the sentry or boss not seeing any enemy and idling or
+entering a false positive state.
 
 ### ConVars:
 
@@ -25,11 +30,24 @@ Define global PvP State when player joins.
 Can be used to disable player collision between enemies.   
 0 = Don't change, 1 = with global pvp disabled, 2 = never collied
 
-**`pvp_notarget "0"`**   
-Add NOTARGET to players outside global pvp. The NOTARGET flag is not used by this plugin and will break other things such as dispensers, so turning on is not recommended.
-
-**`pvp_gamestates "all"`**
+**`pvp_gamestates "all"`**   
 The game states when this plugin should be active or all if it should always run. Following states are possible: all, waiting, pregame, running, overtime, suddendeath, gameover
+
+**`pvp_buildings_vs_zombies "2"`**   
+Control sentry <-> skeleton targeting.   
+Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
+
+**`pvp_buildings_vs_bosses "2"`**   
+Control sentry <-> boss targeting.   
+Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
+
+**`pvp_players_vs_zombies "1"`**   
+Control player <-> skeleton targeting.   
+Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
+
+**`pvp_players_vs_bosses "1"`**   
+Control player <-> boss targeting.   
+Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
 
 **`pvp_playertaint_enable "1"`**   
 Can be used to disable player tainting based on pvp state
@@ -63,6 +81,12 @@ If no pair PvP running, toggle ignore state.
 
 **`/forcepvp <target|'map'> <0|1>`**
 Override the targets global pvp choice. If you use 'map' it will apply to all players joining the server. Non persistent (will reset on map change). Requires admin flag Slay.
+
+**`/mirror <target> <0|1>`**   
+Force mirror damage on someone. Mirror damage only affects players that are not PvPing, and is only for fun.
+
+**`/mirrorme`**
+Mirror your damage agains non-PvP players.
 
 **New Target Selectors:**
 - `@pvp` Select all players with global PvP enabled
