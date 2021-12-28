@@ -8,7 +8,7 @@
 #include <dhooks>
 #include <tf2utils>
 
-#define PLUGIN_VERSION "21w50a"
+#define PLUGIN_VERSION "21w52a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -93,6 +93,8 @@ static DHookSetup hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable;
 static bool detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable;
 static DHookSetup hdl_CMerasmusAttack_IsPotentiallyChaseable;
 static bool detoured_CMerasmusAttack_IsPotentiallyChaseable;
+static DHookSetup hdl_CEyeballBoss_FindClosestVisibleVictim;
+static bool detoured_CEyeballBoss_FindClosestVisibleVictim;
 static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
 static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
 static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
@@ -153,6 +155,7 @@ public void OnPluginStart() {
 		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
 		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
 		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack_IsPotentiallyChaseable");
+		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss_FindClosestVisibleVictim");
 		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
 		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
 		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
@@ -239,24 +242,29 @@ public void OnPluginEnd() {
 
 static void DHooksAttach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && !detoured_INextBot_IsEnemy) {
-		detoured_INextBot_IsEnemy = DHookEnableDetour(hdl_INextBot_IsEnemy, false, Detour_INextBot_IsEnemy);
+		detoured_INextBot_IsEnemy = DHookEnableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
 	} else {
 		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
 	}
 	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CZombieAttack_IsPotentiallyChaseable) {
-		detoured_CZombieAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, false, Detour_CZombieAttack_IsPotentiallyChaseable);
+		detoured_CZombieAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, true, Detour_CZombieAttack_IsPotentiallyChaseable);
 	} else {
 		PrintToServer("Could not hook CZombieAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
 	}
 	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable) {
-		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
 	} else {
 		PrintToServer("Could not hook CHeadlessHatmanAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
 	}
 	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CMerasmusAttack_IsPotentiallyChaseable) {
-		detoured_CMerasmusAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+		detoured_CMerasmusAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
 	} else {
 		PrintToServer("Could not hook CMerasmusAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
+	}
+	if (hdl_CEyeballBoss_FindClosestVisibleVictim != INVALID_HANDLE && !detoured_CEyeballBoss_FindClosestVisibleVictim) {
+		detoured_CEyeballBoss_FindClosestVisibleVictim = DHookEnableDetour(hdl_CEyeballBoss_FindClosestVisibleVictim, true, Detour_CEyeballBoss_FindClosestVisibleVictim);
+	} else {
+		PrintToServer("Could not hook CEyeballBoss::FindClosestVisibleVictim(this)");
 	}
 	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && !detoured_CTFPlayer_ApplyGenericPushbackImpulse) {
 		detoured_CTFPlayer_ApplyGenericPushbackImpulse = DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
@@ -264,7 +272,7 @@ static void DHooksAttach() {
 		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
 	}
 	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && !detoured_CObjectSentrygun_ValidTargetPlayer) {
-		detoured_CObjectSentrygun_ValidTargetPlayer = DHookEnableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, false, Detour_CObjectSentrygun_ValidTargetPlayer);
+		detoured_CObjectSentrygun_ValidTargetPlayer = DHookEnableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
 	} else {
 		PrintToServer("Could not hook CObjectSentrygun::ValidTargetPlayer(CTFPlayer*,Vector*,Vector*). Whack!");
 	}
@@ -276,17 +284,19 @@ static void DHooksAttach() {
 }
 static void DHooksDetach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
-		detoured_INextBot_IsEnemy ^= DHookDisableDetour(hdl_INextBot_IsEnemy, false, Detour_INextBot_IsEnemy);
+		detoured_INextBot_IsEnemy ^= DHookDisableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
 	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CZombieAttack_IsPotentiallyChaseable)
-		detoured_CZombieAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, false, Detour_CZombieAttack_IsPotentiallyChaseable);
+		detoured_CZombieAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, true, Detour_CZombieAttack_IsPotentiallyChaseable);
 	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable)
-		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
 	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CMerasmusAttack_IsPotentiallyChaseable)
-		detoured_CMerasmusAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, false, Detour_BossAttack_IsPotentiallyChaseable);
+		detoured_CMerasmusAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
+	if (hdl_CEyeballBoss_FindClosestVisibleVictim != INVALID_HANDLE && detoured_CEyeballBoss_FindClosestVisibleVictim)
+		detoured_CEyeballBoss_FindClosestVisibleVictim ^= DHookDisableDetour(hdl_CEyeballBoss_FindClosestVisibleVictim, true, Detour_CEyeballBoss_FindClosestVisibleVictim);
 	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && detoured_CTFPlayer_ApplyGenericPushbackImpulse)
 		detoured_CTFPlayer_ApplyGenericPushbackImpulse ^= DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
 	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && detoured_CObjectSentrygun_ValidTargetPlayer)
-		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, false, Detour_CObjectSentrygun_ValidTargetPlayer);
+		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
 	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FoundTarget)
 		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 }
@@ -936,10 +946,6 @@ static void SetTauntKillable(int client, bool enabled) {
 static bool CanClientsPvP(int client1, int client2) {
 	return client1==client2 || globalPvP[0]!=State_Disabled || (IsGlobalPvP(client1) && IsGlobalPvP(client2)) || pairPvP[client1][client2];
 }
-//static bool CanEntitiesPvP(int entity1, int entity2) {
-//	int tmp,client1=GetPlayerEntity(entity1),client2=GetPlayerEntity(entity2);
-//	return client1 != INVALID_ENT_REFERENCE && client2 != INVALID_ENT_REFERENCE && CanClientsPvP(client1, client2);
-//}
 //endregion
 
 //region actual damage blocking and entity stuff
@@ -985,6 +991,20 @@ public MRESReturn Detour_BossAttack_IsPotentiallyChaseable(DHookReturn hReturn, 
 	}
 	return MRES_Ignored;
 }
+public MRESReturn Detour_CEyeballBoss_FindClosestVisibleVictim(int eyeball, DHookReturn hReturn) {
+	int target = hReturn.Value;
+	if (1 > target > MaxClients) return MRES_Ignored; //not targeting a player
+	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
+	bool blocked;
+	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
+	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
+	else blocked = Client_IsValid(target) && !IsGlobalPvP(target) && !IsGlobalPvP(0);
+	if (blocked) {
+		hReturn.Value = INVALID_ENT_REFERENCE;
+		return MRES_Override;
+	}
+	return MRES_Ignored;
+}
 
 public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHookParam hParams) {
 //	float impulse[3]; hParams.GetVector(1, impulse);
@@ -1012,18 +1032,25 @@ public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam h
 	int target = hParams.Get(1);
 	int engi = GetPlayerEntity(building);
 	bool blocked;
-	if (IsEntityZombie(target)) {
+	char classname[64];
+	if (target == INVALID_ENT_REFERENCE) return MRES_Ignored; //error, do whatever you want
+	GetEntityClassname(target, classname, sizeof(classname));
+	if (IsEntityZombie(classname)) {
 		//we are trying to target a zombie, are we allowed to do at all?
 		ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
 		if (mode == PvA_Zombies_Always) blocked = false;
 		else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
 		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
-	} else if (IsEntityBoss(target)) {
+	} else if (IsEntityBoss(classname)) {
 		//we are trying to target a boss, are we allowed to do at all?
 		ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
 		if (mode == PvA_Bosses_Always) blocked = false;
 		else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
 		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+	} else if (IsEntityBuilding(classname)) {
+		//hey ho, we target another building
+		int otherEngi = GetPlayerEntity(target);
+		blocked = Client_IsValid(otherEngi) && !CanClientsPvP(engi,otherEngi);
 	}
 	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
 }
@@ -1047,10 +1074,12 @@ public Action CH_PassFilter(int ent1, int ent2, bool &result) {
 public void OnEntityCreated(int entity, const char[] classname) {
 	if (StrEqual(classname, "player")) {
 		SDKHookClient(entity);
-	} else if (StrEqual(classname, "tf_zombie")) {
+	} else if (IsEntityZombie(classname)) {
 		SDKHook(entity, SDKHook_OnTakeDamage, OnZombieTakeDamage);
-	} else if (StrEqual(classname, "merasmus") || StrEqual(classname, "headless_hatman") || StrEqual(classname, "eyeball_boss")) {
+	} else if (IsEntityBoss(classname)) {
 		SDKHook(entity, SDKHook_OnTakeDamage, OnBossTakeDamage);
+	} else if (IsEntityBuilding(classname)) {
+		SDKHook(entity, SDKHook_OnTakeDamage, OnBuildingTakeDamage);
 	}
 }
 
@@ -1080,6 +1109,16 @@ public Action OnBossTakeDamage(int victim, int &attacker, int &inflictor, float 
 		if (1<=player<=MaxClients && (pvaBuildings&PvA_BOSSES)==PvA_Bosses_Ignored) {
 			return Plugin_Handled;
 		}
+	}
+	return Plugin_Continue;
+}
+public Action OnBuildingTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
+	if (!isActive || !Client_IsValid(attacker))
+		return Plugin_Continue;
+	int owner = GetPlayerEntity(victim);
+	if (Client_IsValid(owner) && !CanClientsPvP(attacker, owner)) {
+		damage = 0.0;
+		return Plugin_Handled;
 	}
 	return Plugin_Continue;
 }
@@ -1185,17 +1224,14 @@ static int GetPlayerEntity(int entity) {
 	return INVALID_ENT_REFERENCE;
 }
 
-static bool IsEntityZombie(int entity) {
-	if (entity == INVALID_ENT_REFERENCE) return false;
-	char cn[64];
-	GetEntityClassname(entity, cn, sizeof(cn));
-	return StrEqual(cn,"tf_zombie");
+static bool IsEntityZombie(const char[] classname) {
+	return StrEqual(classname,"tf_zombie");
 }
-static bool IsEntityBoss(int entity) {
-	if (entity == INVALID_ENT_REFERENCE) return false;
-	char cn[64];
-	GetEntityClassname(entity, cn, sizeof(cn));
-	return (StrEqual(cn, "merasmus") || StrEqual(cn, "headless_hatman") || StrEqual(cn, "eyeball_boss"));
+static bool IsEntityBoss(const char[] classname) {
+	return (StrEqual(classname, "merasmus") || StrEqual(classname, "headless_hatman") || StrEqual(classname, "eyeball_boss"));
+}
+static bool IsEntityBuilding(const char[] classname) {
+	return (StrEqual(classname, "obj_sentrygun") || StrEqual(classname, "obj_dispenser") || StrEqual(classname, "obj_teleporter"));
 }
 
 //endregion
