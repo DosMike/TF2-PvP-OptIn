@@ -88,6 +88,9 @@ Force mirror damage on someone. Mirror damage only affects players that are not 
 **`/mirrorme`**
 Mirror your damage agains non-PvP players.
 
+**`/fakepvprequest <requester> <requestee>`**
+Send a pair PvP request from requester to requestee.
+
 **New Target Selectors:**
 - `@pvp` Select all players with global PvP enabled
 - `@!pvp` Select all players with global PvP enabled
@@ -100,6 +103,7 @@ Install the following required plugins:
 - [DHooks](https://forums.alliedmods.net/showpost.php?p=2588686&postcount=589)
 - [CollisionHook](https://github.com/Adrianilloo/Collisionhook/releases)
 - [TF Utils](https://github.com/nosoop/SM-TFUtils/releases)
+- [NativeVotes](https://github.com/sapphonie/sourcemod-nativevotes-updated) (Optional)
 
 **Note:** DHooks was added to SM 1.11, you might not need to download it in the future.
 

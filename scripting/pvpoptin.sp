@@ -7,8 +7,11 @@
 #include <collisionhook>
 #include <dhooks>
 #include <tf2utils>
+#undef REQUIRE_PLUGIN
+#include <nativevotes>
+#define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "21w52a"
+#define PLUGIN_VERSION "22w01a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -73,6 +76,8 @@ enum ePlayerVsAiFlags {
 	PvA_ZOMBIES = 0x0f,
 	PvA_BOSSES = 0xf0,
 }
+
+static bool depNativeVotes;
 
 static bool isActive; //plugin active flag changed depending on game state
 static eGameState currentGameState;
@@ -172,6 +177,7 @@ public void OnPluginStart() {
 	RegConsoleCmd("sm_mirrorme", Command_MirrorMe, "Turn on mirror damage for attacking non-PvP players");
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
+	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
@@ -236,8 +242,20 @@ public void OnPluginStart() {
 	}
 	if (hotload) RequestFrame(HotloadGameState);
 }
+public void OnAllPluginsLoaded() {
+	depNativeVotes = LibraryExists("nativevotes");
+}
+
 public void OnPluginEnd() {
 	DHooksDetach();
+}
+
+public void OnLibraryAdded(const char[] name) {
+	if (StrEqual(name, "nativevotes")) depNativeVotes = true;
+}
+
+public void OnLibraryRemoved(const char[] name) {
+	if (StrEqual(name, "nativevotes")) depNativeVotes = false;
 }
 
 static void DHooksAttach() {
@@ -328,6 +346,7 @@ public void OnRoundStateChange(Event event, const char[] name, bool dontBroadcas
 	}
 }
 static void HotloadGameState() {
+	//load actual game state
 	RoundState round = GameRules_GetRoundState();
 	if (round == RoundState_GameOver || round == RoundState_TeamWin || round == RoundState_Stalemate) {
 		UpdateActiveState(GameState_GameOver);
@@ -335,6 +354,14 @@ static void HotloadGameState() {
 		UpdateActiveState(GameState_PreGame);
 	} else {
 		UpdateActiveState(GameState_Running);
+	}
+	//hook all non-player entities again
+	char classname[96];
+	for (int i=MaxClients+1;i<2048;i++) {
+		if (IsValidEdict(i)) {
+			GetEntityClassname(i, classname, sizeof(classname));
+			OnEntityCreated(i, classname);
+		}
 	}
 }
 static void UpdateActiveState(eGameState gameState) {
@@ -648,6 +675,41 @@ bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
 	return true;
 }
 
+public Action Command_ForceRequest(int client, int args) {
+	char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
+	int target[1], matches, fakesource, faketarget;
+	bool tn_is_ml;
+	
+	if (GetCmdArgs() != 2) {
+		GetCmdArg(0, pattern, sizeof(pattern));
+		ReplyToCommand(client, "Usage: %s <requester> <requestee>", pattern);
+		return Plugin_Handled;
+	}
+	
+	GetCmdArg(1, pattern, sizeof(pattern));
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	if (matches <= 0) {
+		ReplyToTargetError(client, matches);
+		return Plugin_Handled;
+	} else {
+		fakesource = target[0];
+	}
+	GetCmdArg(2, pattern, sizeof(pattern));
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	if (matches <= 0) {
+		ReplyToTargetError(client, matches);
+		return Plugin_Handled;
+	} else {
+		faketarget = target[0];
+	}
+	
+	if (fakesource == faketarget) {
+		ReplyToCommand(client, "Client and Target are now allowed to be the same player!");
+	} else {
+		RequestPairPvP(fakesource, faketarget);
+	}
+	return Plugin_Handled;
+}
 public Action Command_TogglePvP(int client, int args) {
 	if (GetCmdArgs()==0) {
 		SetGlobalPvP(client, !(globalPvP[client]&State_Enabled));
@@ -832,6 +894,8 @@ static void RequestPairPvP(int requester, int requestee) {
 		CPrintToChat(requestee, "%t", "Someone requested pvp, confirm", requester, requester);
 		CPrintToChat(requester, "%t", "You requested pvp", requestee);
 		pairPvPrequest[requester] = requestee;
+		if (depNativeVotes) VotePairPvPRequest(requester, requestee);
+		else MenuPairPvPRequest(requester, requestee);
 	}
 }
 static void DeclinePairPvP(int requestee) {
@@ -858,6 +922,83 @@ static void EndAllPairPvPFor(int client) {
 	}
 	SetPairPvPClient(client, false);
 	CPrintToChat(client, "%t", "You disengaged all pair pvp");
+}
+
+static ArrayList pairPvPVoteData;
+static void VotePairPvPRequest(int requester, int requestee) {
+	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
+	NativeVote vote = NativeVotes_Create(PairPvPNativeVote, NativeVotesType_Custom_YesNo);
+	vote.SetTitle("%N requested pair PvP\nDo you Accept?", requester);
+	vote.Initiator = requester;
+	vote.SetTarget(requestee);
+	int clients[1];clients[0]=requestee;
+	vote.DisplayVote(clients, 1, 10, VOTEFLAG_NO_REVOTES);
+	
+	int at = pairPvPVoteData.FindValue(requester, 1);
+	if (at >= 0) {
+		NativeVote otherVote = pairPvPVoteData.Get(at);
+		otherVote.DisplayFail();
+		otherVote.Close();
+	}
+	any vdata[3];
+	vdata[0] = vote;
+	vdata[1] = requester;
+	vdata[2] = requestee;
+	pairPvPVoteData.PushArray(vdata);
+}
+public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int param2) {
+	int at = pairPvPVoteData.FindValue(vote);
+	if (action == MenuAction_End) {
+		vote.Close();
+		if (at >= 0) pairPvPVoteData.Erase(at);
+	} else if (action == MenuAction_VoteEnd) {
+		any vdata[3];
+		if (at >= 0) pairPvPVoteData.GetArray(at, vdata);
+		if (!param1) {
+			RequestPairPvP(vdata[2], vdata[1]); //request reverse to confirm
+			vote.DisplayPassCustom("May the best player win!");
+		} else {
+			DeclinePairPvP(vdata[2]);
+			vote.DisplayFail(param1>0 ? NativeVotesFail_Loses : NativeVotesFail_NotEnoughVotes);
+		}
+	}
+}
+static void MenuPairPvPRequest(int requester, int requestee) {
+	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
+	Menu menu = new Menu(PairPvPSourcemodVote);
+	menu.SetTitle("%N requested pair PvP\nDo you Accept?", requester);
+	menu.AddItem("0", "Yes");
+	menu.AddItem("1", "No");
+	menu.Display(requestee, 10);
+	
+	any vdata[3];
+	vdata[0] = menu;
+	vdata[1] = requester;
+	vdata[2] = requestee;
+	pairPvPVoteData.PushArray(vdata);
+}
+public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int param2) {
+	int at = pairPvPVoteData.FindValue(menu);
+	int selection;
+	if (action == MenuAction_End) {
+		if (at >= 0) pairPvPVoteData.Erase(at);
+		delete menu;
+		return;
+	} else if (action == MenuAction_Select) {
+		char buffer[4];
+		menu.GetItem(param2, buffer, sizeof(buffer));
+		if (StrEqual(buffer,"0")) selection = 0;
+		else selection = 1;
+	} else if (action == MenuAction_Cancel) {
+		selection=-1;
+	}
+	any vdata[3];
+	if (at >= 0) pairPvPVoteData.GetArray(at, vdata);
+	if (!selection) {
+		RequestPairPvP(vdata[2], vdata[1]); //request reverse to confirm
+	} else {
+		DeclinePairPvP(vdata[2]);
+	}
 }
 //endregion
 
@@ -1127,9 +1268,10 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	// but stray projectiles / spray might still hit them
 	if (!isActive || !Client_IsValid(attacker))
 		return Plugin_Continue;
-	else if (CanClientsPvP(victim, attacker))
+	else if (victim == attacker || CanClientsPvP(victim, attacker))
 		return Plugin_Continue; //pvp is on, go nuts
-	else if (victim != attacker && IsMirrored(attacker)) {
+	else if (IsMirrored(attacker)) {
+		PrintToChat(attacker, "You are mirrored!");
 		if (damagecustom == TF_CUSTOM_BACKSTAB)
 			damage = GetClientHealth(attacker) * 6.0;
 		SDKHooks_TakeDamage(attacker, inflictor, attacker, damage, damagetype, weapon, damageForce, damagePosition);
