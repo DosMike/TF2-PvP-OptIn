@@ -10,7 +10,8 @@
 	}
 	"SettingsMenuTitle"
 	{
-		"en"	"Opt In PvP\n \n'Mirror Damage' will hurt yourself if target is not in PvP.\n'Taunt Kill Me' allows other players to taunt kill you reguardless of PvP state."
+		//will break the menu if too long (currently 356 chars ignoring changes in labels)
+		"en"	"Opt In PvP\n \n'Ignore Pair PvP' prevents other players from requesting PvP with you.\n'Mirror Damage' will hurt yourself if target is not in PvP.\n'Taunt Kill Me' allows other players to taunt kill you reguardless of PvP state.\n'Allow some conditions' will re-enable some conditions while not in PvP.\n  (Jarated, Milked, ...)\n "
 	}
 	"SettingsMenuGlobal"
 	{
@@ -27,6 +28,10 @@
 	"SettingsMenuTauntKills"
 	{
 		"en"	"Taunt Kill Me"
+	}
+	"SettingsMenuConditions"
+	{
+		"en"	"Allow some conditions"
 	}
 	"Pick player for pvp"
 	{
@@ -48,7 +53,7 @@
 	}
 	"You disengaged all pair pvp"
 	{
-		"en"	"{darkviolet}[PvP]{defaut} You disengaged from all {azure}Pair PvP{default}."
+		"en"	"{darkviolet}[PvP]{default} You disengaged from all {azure}Pair PvP{default}."
 	}
 	"You engaged pair pvp"
 	{
@@ -150,6 +155,14 @@
 	"Taunt Kills Disabled"
 	{
 		"en"	"{darkviolet}[PvP]{default} You can no longer be taunt-killed"
+	}
+	"Limited Conditions Enabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Players can now inflict minor conditions on you"
+	}
+	"Limited Conditions Disabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Minor conditions are blocked outside of PvP"
 	}
 	"Someone forced map pvp"
 	{
