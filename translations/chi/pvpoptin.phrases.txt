@@ -66,32 +66,26 @@
 	}
 	"You cancelled pvp request"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你取消了你之前与 {1} 的请求"
 	}
 	"Someone requested pvp, confirm"
 	{
-		"#format" "{1:N},{2:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 想要和你PvP，使用 {darkgray}/pvp {2}{default} 来进行确认"
 	}
 	"You requested pvp"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你发送了PvP请求给 {1} 。"
 	}
 	"Your pvp request was declined"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你与 {1} 的 {azure}对决PvP{default} 请求被拒绝。"
 	}
 	"You declined multiple pvp requests"
 	{
-		"#format" "{1:d}"
 		"chi"	"{darkviolet}[PvP]{default} 你已拒绝与 {1} 的 {azure}对决PvP{default} 的请求。"
 	}
 	"You declined single pvp request"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你已拒绝 {1} 的{azure}对决PvP{default} 的请求。"
 	}
 	"Global pvp state on line1"
@@ -180,22 +174,18 @@
 	}
 	"Someone forced your mirror damage"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 强制你镜像伤害"
 	}
 	"You forced someones mirror damage"
 	{
-		"#format" "{1:s}"
 		"chi"	"{darkviolet}[PvP]{default} 你强制 {1} 开启镜像伤害"
 	}
 	"Someone reset your mirror damage"
 	{
-		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 重置了你的镜像伤害回到个人设定"
 	}
 	"You reset someones mirror damage"
 	{
-		"#format" "{1:s}"
 		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的镜像伤害"
 	}
 }
