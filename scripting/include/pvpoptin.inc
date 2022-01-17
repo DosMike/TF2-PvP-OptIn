@@ -125,3 +125,27 @@ forward Action pvp_OnPairInvite(int requester, int requestee);
  * @return !continue to cancel
  */
 forward Action pvp_OnPairChanged(int client1, int client2, bool value);
+
+
+public SharedPlugin __pl_pvpoptin =  {
+    name = "pvpoptin",
+    file = "pvpoptin.smx",
+#if defined REQUIRE_PLUGIN
+    required = 1,
+#else
+    required = 0,
+#endif
+};
+
+#if !defined REQUIRE_PLUGIN
+public void __pl_pvpoptin_SetNTVOptional() {
+	MarkNativeAsOptional("pvp_IsActive");
+    MarkNativeAsOptional("pvp_GetPlayerGlobal");
+    MarkNativeAsOptional("pvp_SetPlayerGlobal");
+    MarkNativeAsOptional("pvp_GetPlayerPair");
+    MarkNativeAsOptional("pvp_ForcePlayerPair");
+    MarkNativeAsOptional("pvp_CanAttack");
+    MarkNativeAsOptional("pvp_IsMirrored");
+    MarkNativeAsOptional("pvp_SetMirrored");
+}
+#endif
