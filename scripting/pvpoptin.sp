@@ -83,6 +83,7 @@ enum eEnabledState(<<=1) {
 	State_ExternalOff, //a plugin placed an override
 	State_BotAlways, //force-enabled in a way that can't turn off because bots
 }
+#define ENABLEDMASK_EXTERNAL  (State_ExternalOn|State_ExternalOff)
 
 enum ePlayerVsAiFlags {
 	PvA_Zombies_Ignored = 0, //players cant hurt zombies, zombies ignore players
@@ -150,6 +151,10 @@ static ePlayerVsAiFlags pvaBuildings;
 static ConVar cvar_PlayersVersusZombies;
 static ConVar cvar_PlayersVersusBosses;
 static ePlayerVsAiFlags pvaPlayers;
+
+static GlobalForward fwdGlobalChanged;
+static GlobalForward fwdPairInvited;
+static GlobalForward fwdPairChanged;
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
@@ -251,6 +256,10 @@ public void OnPluginStart() {
 	hookAndLoadCvar(cvar_ColorGlobalOffBlu, OnCVarChanged_PlayerTaint);
 	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
 	AutoExecConfig();
+	
+	fwdGlobalChanged = new GlobalForward("pvp_OnGlobalChanged", ET_Event, Param_Cell, Param_Cell, Param_Cell);
+	fwdPairInvited = new GlobalForward("pvp_OnPairInvite", ET_Event, Param_Cell, Param_Cell);
+	fwdPairChanged = new GlobalForward("pvp_OnPairChanged", ET_Event, Param_Cell, Param_Cell, Param_Cell);
 	
 	SetCookieMenuItem(HandleCookieMenu, 0, "PvP");
 	bool hotload;
@@ -933,12 +942,14 @@ static void RequestPairPvP(int requester, int requestee) {
 			CPrintToChat(pairPvPrequest[requester], "%t", "Someone cancelled pvp request for another", requester);
 			CPrintToChat(requester, "%t", "You cancelled pvp request", pairPvPrequest[requester]);
 		}
-		CPrintToChat(requestee, "%t", "Someone requested pvp, confirm", requester, requester);
-		CPrintToChat(requester, "%t", "You requested pvp", requestee);
-		pairPvPrequest[requester] = requestee;
-		if (pairPvPRequestMenu) {
-			if (depNativeVotes) VotePairPvPRequest(requester, requestee);
-			else MenuPairPvPRequest(requester, requestee);
+		if (Notify_OnPairInvited(requester, requestee)) {
+			CPrintToChat(requestee, "%t", "Someone requested pvp, confirm", requester, requester);
+			CPrintToChat(requester, "%t", "You requested pvp", requestee);
+			pairPvPrequest[requester] = requestee;
+			if (pairPvPRequestMenu) {
+				if (depNativeVotes) VotePairPvPRequest(requester, requestee);
+				else MenuPairPvPRequest(requester, requestee);
+			}
 		}
 	}
 }
@@ -1058,10 +1069,18 @@ static void PrintGlobalPvpState(int client) {
 	}
 	CPrintToChat(client, "%t", "Hey there's also pair pvp");
 }
-static void SetGlobalPvP(int client, bool pvp) {
+//return false if cancelled
+static bool SetGlobalPvP(int client, bool pvp) {
 	Handle cookie;
-	if (pvp) globalPvP[client] |= State_Enabled;
-	else globalPvP[client] &=~ State_Enabled;
+	eEnabledState newState;
+	if (pvp) newState |= State_Enabled;
+	else newState &=~ State_Enabled;
+	
+	if (Notify_OnGlobalChanged(client, newState) && newState != globalPvP[client]) {
+		globalPvP[client] = newState;
+		pvp = (newState & State_Enabled) == State_Enabled;
+	} else return false; //nothing changed, what do you want? :D
+	
 	if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null) {
 		char value[2]="0";
 		if (pvp) value[0]='1';
@@ -1070,6 +1089,7 @@ static void SetGlobalPvP(int client, bool pvp) {
 	}
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	PrintGlobalPvpState(client);
+	return true;
 }
 static void SetPairPvPIgnored(int client, bool ignore) {
 	Handle cookie;
@@ -1087,8 +1107,12 @@ static void SetPairPvPIgnored(int client, bool ignore) {
 		CPrintToChat(client, "%t", "You are allowing pair pvp");
 	}
 }
-static void SetPairPvP(int client1, int client2, bool pvp) {
-	pairPvP[client1][client2] = pairPvP[client2][client1] = pvp;
+//return false if cancelled
+static bool SetPairPvP(int client1, int client2, bool pvp) {
+	if (Notify_OnPairChanged(client1, client2, pvp)) {
+		pairPvP[client1][client2] = pairPvP[client2][client1] = pvp;
+		return true;
+	} else return false;
 }
 static void SetPairPvPClient(int client, bool pvp=false) {
 	for (int i=1;i<=MaxClients;i++) {
@@ -1390,7 +1414,144 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 
 //region natives
 
-//TODO
+public APLRes AskPluginLoad2(Handle plugin, bool late, char[] error, int err_max) {
+    CreateNative("pvp_IsActive",        Native_IsActive);
+    CreateNative("pvp_GetPlayerGlobal", Native_GetPlayerGlobal);
+    CreateNative("pvp_SetPlayerGlobal", Native_SetPlayerGlobal);
+    CreateNative("pvp_GetPlayerPair",   Native_GetPlayerPair);
+    CreateNative("pvp_ForcePlayerPair", Native_ForcePlayerPair);
+    CreateNative("pvp_CanAttack",       Native_CanAttack);
+    CreateNative("pvp_IsMirrored",      Native_IsMirrored);
+    CreateNative("pvp_SetMirrored",     Native_SetMirrored);
+    
+    RegPluginLibrary("pvpoptin");
+}
+
+//native bool pvp_IsActive();
+public any Native_IsActive(Handle plugin, int numParams) {
+	return isActive;
+}
+//native bool pvp_GetPlayerGlobal(int client, pvpEnabledState& pvpState = PVPState_Disabled);
+public any Native_GetPlayerGlobal(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	SetNativeCellRef(2, globalPvP[client]);
+	return IsGlobalPvP(client);
+}
+//native void pvp_SetPlayerGlobal(int client, int value=-1);
+public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	int value = GetNativeCell(2);
+	bool wasGlobalPvP = IsGlobalPvP(client);
+	
+	eEnabledState sflag = State_Disabled;
+	if (value > 0) sflag = State_ExternalOn;
+	else if (value == 0) sflag = State_ExternalOff;
+	sflag = (globalPvP[client] & ~ENABLEDMASK_EXTERNAL) | sflag;
+	
+	if (Notify_OnGlobalChanged(client, sflag)) {
+		globalPvP[client] = sflag;
+		if (wasGlobalPvP != IsGlobalPvP(client)) {
+			UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
+			PrintGlobalPvpState(client);
+		}
+	}
+}
+//native bool pvp_GetPlayerPair(int client1, int client2);
+public any Native_GetPlayerPair(Handle plugin, int numParams) {
+	int client1 = GetNativeCell(1);
+	int client2 = GetNativeCell(2);
+	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
+	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	return pairPvP[client1][client2];
+}
+//native void pvp_ForcePlayerPair(int client1, int client2, bool value);
+public any Native_ForcePlayerPair(Handle plugin, int numParams) {
+	int client1 = GetNativeCell(1);
+	int client2 = GetNativeCell(2);
+	bool force = GetNativeCell(3);
+	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
+	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	bool oldValue = pairPvP[client1][client2];
+	if (oldValue != force && client1!=client2 && Notify_OnPairChanged(client1, client2, force)) {
+		SetPairPvP(client1,client2,force);
+	}
+}
+//native bool pvp_CanAttack(int client1, int client2);
+public any Native_CanAttack(Handle plugin, int numParams) {
+	int client1 = GetNativeCell(1);
+	int client2 = GetNativeCell(2);
+	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
+	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	return CanClientsPvP(client1, client2);
+}
+//native bool pvp_IsMirrored(int client, pvpEnabledState& pvpState = PVPState_Disabled );
+public any Native_IsMirrored(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	SetNativeCellRef(2, mirrorDamage[client]);
+	return IsMirrored(client);
+}
+//native void pvp_SetMirrored(int client, int value=-1);
+public any Native_SetMirrored(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	int value = GetNativeCell(2);
+	
+	eEnabledState sflag = State_Disabled;
+	if (value > 0) sflag = State_ExternalOn;
+	else if (value == 0) sflag = State_ExternalOff;
+	sflag = (mirrorDamage[client] & ~ENABLEDMASK_EXTERNAL) | sflag;
+	
+	globalPvP[client] = sflag;
+}
+
+//return true to continue
+static bool Notify_OnGlobalChanged(int client, eEnabledState& value) {
+	eEnabledState svalue = value;
+	Action result;
+	Call_StartForward(fwdGlobalChanged);
+	Call_PushCell(client);
+	Call_PushCell(globalPvP[client]);
+	Call_PushCellRef(svalue);
+	Call_Finish(result);
+	switch (result) {
+		case Plugin_Continue: return true;
+		case Plugin_Changed: { 
+			//only modify legal values (external*) in the ref value
+			eEnabledState changed = (value ^ svalue) & ENABLEDMASK_EXTERNAL;
+			value ^= changed;
+			return true;
+		}
+		default: return false;
+	}
+}
+//return true to continue
+static bool Notify_OnPairInvited(int requester, int requestee) {
+	Action result;
+	Call_StartForward(fwdPairInvited);
+	Call_PushCell(requester);
+	Call_PushCell(requestee);
+	Call_Finish(result);
+	switch (result) {
+		case Plugin_Continue: return true;
+		default: return false;
+	}
+}
+//return true to continue
+static bool Notify_OnPairChanged(int client1, int client2, bool changedOn) {
+	Action result;
+	Call_StartForward(fwdPairChanged);
+	Call_PushCell(client1);
+	Call_PushCell(client2);
+	Call_PushCell(changedOn);
+	Call_Finish(result);
+	switch (result) {
+		case Plugin_Continue: return true;
+		default: return false;
+	}
+}
 
 //endregion
 
