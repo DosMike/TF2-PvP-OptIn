@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w01b"
+#define PLUGIN_VERSION "22w03a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -257,7 +257,7 @@ public void OnPluginStart() {
 	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
 	AutoExecConfig();
 	
-	fwdGlobalChanged = new GlobalForward("pvp_OnGlobalChanged", ET_Event, Param_Cell, Param_Cell, Param_Cell);
+	fwdGlobalChanged = new GlobalForward("pvp_OnGlobalChanged", ET_Event, Param_Cell, Param_Cell, Param_CellByRef);
 	fwdPairInvited = new GlobalForward("pvp_OnPairInvite", ET_Event, Param_Cell, Param_Cell);
 	fwdPairChanged = new GlobalForward("pvp_OnPairChanged", ET_Event, Param_Cell, Param_Cell, Param_Cell);
 	
@@ -1165,7 +1165,11 @@ static void SetLimitedConditionsAllowed(int client, bool enabled) {
 }
 
 static bool CanClientsPvP(int client1, int client2) {
-	return client1==client2 || globalPvP[0]!=State_Disabled || (IsGlobalPvP(client1) && IsGlobalPvP(client2)) || pairPvP[client1][client2];
+	return client1==client2 ||
+		globalPvP[0]!=State_Disabled ||
+		(IsGlobalPvP(client1) && IsGlobalPvP(client2)) ||
+		pairPvP[client1][client2];
+		//duels should be checked here
 }
 //endregion
 
