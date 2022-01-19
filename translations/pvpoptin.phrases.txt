@@ -41,6 +41,10 @@
 	{
 		"en"	"{darkviolet}[PvP]{default} Sorry, bots can not use {azure}Pair PvP{default}!"
 	}
+	"Requester is Requestee"
+	{
+		"en"	"Requester and requestee cannot be the same"
+	}
 	"Someone disengaged pair pvp"
 	{
 		"#format" "{1:N}"
@@ -88,6 +92,11 @@
 	{
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've requested PvP with {1}."
+	}
+	"Vote Title PvP Request"
+	{
+		"#format" "{1:N}"
+		"en"	"{1} requested pair PvP\nDo you Accept?"
 	}
 	"Your pvp request was declined"
 	{

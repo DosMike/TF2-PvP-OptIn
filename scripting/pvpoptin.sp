@@ -137,7 +137,7 @@ static int noCollideState;
 static ConVar cvar_ActiveStates;
 static eGameState activeGameStates;
 static ConVar cvar_PairPvPRequestMenu;
-static bool pairPvPRequestMenu;
+static int pairPvPRequestMenu;
 static ConVar cvar_UsePlayerColors;
 static bool usePlayerStateColors;
 static ConVar cvar_ColorGlobalOnRed;
@@ -229,7 +229,7 @@ public void OnPluginStart() {
 	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", _, true, -1.0, true, 1.0);
 	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", _, true, 0.0, true, 2.0);
 	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", _);
-	cvar_PairPvPRequestMenu = CreateConVar( "pvp_requestmenus", "1", "When players request pair PvP and this is enabled, the requestee will receive a menu; otherwise the requeste will have to use /pvp requester", _, true, 0.0, true, 1.0);
+	cvar_PairPvPRequestMenu = CreateConVar( "pvp_requestmenus", "1", "When players request pair PvP: 0 = requeste will have to use /pvp requester, 1 = requestee will receive a menu, 2 = will force VGUI menus", _, true, 0.0, true, 2.0);
 	cvar_BuildingsVersusZombies = CreateConVar( "pvp_buildings_vs_zombies", "2", "Control sentry <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
 	cvar_BuildingsVersusBosses = CreateConVar( "pvp_buildings_vs_bosses", "2", "Control sentry <-> boss targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
 	cvar_PlayersVersusZombies = CreateConVar( "pvp_players_vs_zombies", "1", "Control player <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
@@ -581,7 +581,7 @@ public void OnCVarChanged_ActiveStates(ConVar convar, const char[] oldValue, con
 	UpdateActiveState(currentGameState);
 }
 public void OnCVarChanged_PairPvPRequestMenu(ConVar convar, const char[] oldValue, const char[] newValue) {
-	pairPvPRequestMenu = convar.BoolValue;
+	pairPvPRequestMenu = convar.IntValue;
 }
 public void OnCVarChanged_BuildingsVersusZombies(ConVar convar, const char[] oldValue, const char[] newValue) {
 	ePlayerVsAiFlags value;
@@ -755,7 +755,7 @@ public Action Command_ForceRequest(int client, int args) {
 	}
 	
 	if (fakesource == faketarget) {
-		ReplyToCommand(client, "Client and Target are now allowed to be the same player!");
+		ReplyToCommand(client, "%t", "Requester is Requestee");
 	} else {
 		RequestPairPvP(fakesource, faketarget);
 	}
@@ -947,7 +947,7 @@ static void RequestPairPvP(int requester, int requestee) {
 			CPrintToChat(requester, "%t", "You requested pvp", requestee);
 			pairPvPrequest[requester] = requestee;
 			if (pairPvPRequestMenu) {
-				if (depNativeVotes) VotePairPvPRequest(requester, requestee);
+				if (depNativeVotes && pairPvPRequestMenu == 1) VotePairPvPRequest(requester, requestee);
 				else MenuPairPvPRequest(requester, requestee);
 			}
 		}
@@ -983,7 +983,7 @@ static ArrayList pairPvPVoteData;
 static void VotePairPvPRequest(int requester, int requestee) {
 	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
 	NativeVote vote = NativeVotes_Create(PairPvPNativeVote, NativeVotesType_Custom_YesNo);
-	vote.SetTitle("%N requested pair PvP\nDo you Accept?", requester);
+	vote.SetTitle("%T", "Vote Title PvP Request", requestee, requester);
 	vote.Initiator = requester;
 	vote.SetTarget(requestee);
 	int clients[1];clients[0]=requestee;
@@ -1021,9 +1021,12 @@ public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int
 static void MenuPairPvPRequest(int requester, int requestee) {
 	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
 	Menu menu = new Menu(PairPvPSourcemodVote);
-	menu.SetTitle("%N requested pair PvP\nDo you Accept?", requester);
-	menu.AddItem("0", "Yes");
-	menu.AddItem("1", "No");
+	char buffer[16];
+	menu.SetTitle("%T", "Vote Title PvP Request", requestee, requester);
+	Format(buffer, sizeof(buffer), "%T", "Yes", requestee);
+	menu.AddItem("0", buffer);
+	Format(buffer, sizeof(buffer), "%T", "No", requestee);
+	menu.AddItem("1", buffer);
 	menu.Display(requestee, 10);
 	
 	any vdata[3];
@@ -1365,7 +1368,6 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	else if (victim == source || CanClientsPvP(victim, source))
 		return Plugin_Continue; //pvp is on, go nuts
 	else if (IsMirrored(source)) {
-		PrintToChat(source, "You are mirrored!");
 		if (damagecustom == TF_CUSTOM_BACKSTAB)
 			damage = GetClientHealth(source) * 6.0;
 		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);

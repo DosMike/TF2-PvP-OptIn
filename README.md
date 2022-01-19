@@ -33,6 +33,9 @@ Can be used to disable player collision between enemies.
 **`pvp_gamestates "all"`**   
 The game states when this plugin should be active or all if it should always run. Following states are possible: all, waiting, pregame, running, overtime, suddendeath, gameover
 
+**`pvp_requestmenus "1"`**   
+When players request pair PvP: 0 = requeste will have to use /pvp requester, 1 = requestee will receive a menu, 2 = will force VGUI menus
+
 **`pvp_buildings_vs_zombies "2"`**   
 Control sentry <-> skeleton targeting.   
 Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
