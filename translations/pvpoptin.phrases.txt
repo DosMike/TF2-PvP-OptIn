@@ -73,6 +73,10 @@
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've already requested PvP with {1}"
 	}
+	"There is a pending request with menus"
+	{
+		"en"	"{darkviolet}[PvP]{default} This player already has a pending PvP request"
+	}
 	"Someone cancelled pvp request for another"
 	{
 		"#format" "{1:N}"

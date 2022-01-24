@@ -738,7 +738,7 @@ public Action Command_ForceRequest(int client, int args) {
 	}
 	
 	GetCmdArg(1, pattern, sizeof(pattern));
-	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
 	if (matches <= 0) {
 		ReplyToTargetError(client, matches);
 		return Plugin_Handled;
@@ -746,7 +746,7 @@ public Action Command_ForceRequest(int client, int args) {
 		fakesource = target[0];
 	}
 	GetCmdArg(2, pattern, sizeof(pattern));
-	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
 	if (matches <= 0) {
 		ReplyToTargetError(client, matches);
 		return Plugin_Handled;
@@ -937,12 +937,15 @@ static void RequestPairPvP(int requester, int requestee) {
 		CPrintToChat(requester, "%t", "You are both global pvp");
 	} else if (pairPvPrequest[requester]==requestee) {
 		CPrintToChat(requester, "%t", "Already requested pvp with", requestee);
+	} else if (pairPvPRequestMenu && ArrayFind(requestee, pairPvPrequest, sizeof(pairPvPrequest))>0) {
+		//menus are kinda iffy 
+		CPrintToChat(requester, "%t", "There is a pending request with menus");
 	} else {
-		if (Client_IsValid(pairPvPrequest[requester])) {
-			CPrintToChat(pairPvPrequest[requester], "%t", "Someone cancelled pvp request for another", requester);
-			CPrintToChat(requester, "%t", "You cancelled pvp request", pairPvPrequest[requester]);
-		}
 		if (Notify_OnPairInvited(requester, requestee)) {
+			if (Client_IsValid(pairPvPrequest[requester])) {
+				CPrintToChat(pairPvPrequest[requester], "%t", "Someone cancelled pvp request for another", requester);
+				CPrintToChat(requester, "%t", "You cancelled pvp request", pairPvPrequest[requester]);
+			}
 			CPrintToChat(requestee, "%t", "Someone requested pvp, confirm", requester, requester);
 			CPrintToChat(requester, "%t", "You requested pvp", requestee);
 			pairPvPrequest[requester] = requestee;
@@ -953,11 +956,12 @@ static void RequestPairPvP(int requester, int requestee) {
 		}
 	}
 }
-static void DeclinePairPvP(int requestee) {
+static void DeclinePairPvP(int requestee, bool CloseMenus=true) {
 	int declined,someRequester=0;
 	for (int requester=1; requester<=MaxClients; requester++) {
 		if (Client_IsValid(requester) && pairPvPrequest[requester]==requestee) {
 			CPrintToChat(requester, "%t", "Your pvp request was declined", requestee);
+			if (CloseMenus && depNativeVotes && pairPvPRequestMenu == 1) ForceEndNativeVote(requester);
 			pairPvPrequest[requester] = 0;
 			someRequester = requester;
 			declined++;
@@ -981,7 +985,7 @@ static void EndAllPairPvPFor(int client) {
 
 static ArrayList pairPvPVoteData;
 static void VotePairPvPRequest(int requester, int requestee) {
-	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
+	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(4);
 	NativeVote vote = NativeVotes_Create(PairPvPNativeVote, NativeVotesType_Custom_YesNo);
 	vote.SetTitle("%T", "Vote Title PvP Request", requestee, requester);
 	vote.Initiator = requester;
@@ -989,33 +993,53 @@ static void VotePairPvPRequest(int requester, int requestee) {
 	int clients[1];clients[0]=requestee;
 	vote.DisplayVote(clients, 1, 10, VOTEFLAG_NO_REVOTES);
 	
-	int at = pairPvPVoteData.FindValue(requester, 1);
-	if (at >= 0) {
-		NativeVote otherVote = pairPvPVoteData.Get(at);
-		otherVote.DisplayFail();
-		otherVote.Close();
-	}
-	any vdata[3];
+	ForceEndNativeVote(requester);
+	any vdata[4];
 	vdata[0] = vote;
 	vdata[1] = requester;
 	vdata[2] = requestee;
+	vdata[3] = 1; //1 for in use
 	pairPvPVoteData.PushArray(vdata);
+}
+static void ForceEndNativeVote(int requester) {
+	int at = pairPvPVoteData.FindValue(requester, 1);
+	if (at >= 0) {
+		PrintToServer("NativeVote Interrupted");
+		view_as<NativeVote>(pairPvPVoteData.Get(at)).Close(); //will decline requests if not done yet
+		pairPvPVoteData.Erase(at); //late erase to allow cancelling of ui
+	}
 }
 public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int param2) {
 	int at = pairPvPVoteData.FindValue(vote);
+	any vdata[4];
+	if (at >= 0) pairPvPVoteData.GetArray(at, vdata);
 	if (action == MenuAction_End) {
-		vote.Close();
-		if (at >= 0) pairPvPVoteData.Erase(at);
-	} else if (action == MenuAction_VoteEnd) {
-		any vdata[3];
-		if (at >= 0) pairPvPVoteData.GetArray(at, vdata);
-		if (!param1) {
-			RequestPairPvP(vdata[2], vdata[1]); //request reverse to confirm
-			vote.DisplayPassCustom("May the best player win!");
-		} else {
-			DeclinePairPvP(vdata[2]);
-			vote.DisplayFail(param1>0 ? NativeVotesFail_Loses : NativeVotesFail_NotEnoughVotes);
+		PrintToServer("NativeVote END");
+		if (at >= 0) {
+			pairPvPVoteData.Erase(at); //we've read the data, remove from list
+			if (vdata[3]) {//bugged or timed out, close for both
+				vote.DisplayPassCustomToOne(vdata[1], "The Pair PvP invite failed!");
+				vote.DisplayPassCustomToOne(vdata[2], "The Pair PvP invite failed!");
+				DeclinePairPvP(vdata[2], false); //and decline if not done yet
+			}
 		}
+		vote.Close();
+	} else if (action == MenuAction_VoteEnd) {
+		PrintToServer("NativeVote VoteEnd");
+		if (!param1) {
+			if (vdata[3]) {
+				vote.DisplayPassCustomToOne(vdata[1], "Pair PvP invite was accepted!");
+				vote.DisplayPassCustomToOne(vdata[2], "Pair PvP invite was accepted!");
+			}
+			RequestPairPvP(vdata[2], vdata[1]); //request reverse to confirm
+		} else {
+			if (vdata[3]) {
+				vote.DisplayPassCustomToOne(vdata[1], "Pair PvP invite was declined!");
+				vote.DisplayPassCustomToOne(vdata[2], "Pair PvP invite was declined!");
+			}
+			DeclinePairPvP(vdata[2], false);
+		}
+		pairPvPVoteData.Set(at, 0, 3); //should now be unused, no further display calls requred
 	}
 }
 static void MenuPairPvPRequest(int requester, int requestee) {
