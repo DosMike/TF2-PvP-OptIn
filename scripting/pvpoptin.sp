@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w03a"
+#define PLUGIN_VERSION "22w04a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -952,8 +952,8 @@ static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 		//silent fail
 	} else if (antiSpam && (tmp = (PvP_PAIRREQUEST_COOLDOWN - (GetClientTime(requester) - clientLatestPvPRequest[requester]))) > 0.0) {
 		CPrintToChat(requester, "%t", "Last pair pvp request too recent", RoundToCeil(tmp));
-//	} else if (IsFakeClient(requestee)) {
-//		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
+	} else if (IsFakeClient(requestee)) {
+		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
 	} else if (pairPvP[requester][requestee]) {
 		CPrintToChat(requestee, "%t", "Someone disengaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You disengaged pair pvp", requestee);
@@ -1036,7 +1036,6 @@ static void VotePairPvPRequest(int requester, int requestee) {
 static void ForceEndNativeVote(int requester) {
 	int at = pairPvPVoteData.FindValue(requester, 1);
 	if (at >= 0) {
-		PrintToServer("NativeVote Interrupted");
 		view_as<NativeVote>(pairPvPVoteData.Get(at)).Close(); //will decline requests if not done yet
 		pairPvPVoteData.Erase(at); //late erase to allow cancelling of ui
 	}
@@ -1046,7 +1045,6 @@ public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int
 	any vdata[4];
 	if (at >= 0) pairPvPVoteData.GetArray(at, vdata);
 	if (action == MenuAction_End) {
-		PrintToServer("NativeVote END");
 		if (at >= 0) {
 			pairPvPVoteData.Erase(at); //we've read the data, remove from list
 			if (vdata[3]) {//bugged or timed out, close for both
@@ -1057,7 +1055,6 @@ public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int
 		}
 		vote.Close();
 	} else if (action == MenuAction_VoteEnd) {
-		PrintToServer("NativeVote VoteEnd");
 		if (!param1) {
 			if (vdata[3]) {
 				vote.DisplayPassCustomToOne(vdata[1], "Pair PvP invite was accepted!");
