@@ -110,6 +110,8 @@ static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1]; //double reffed so order doesn'
 static int pairPvPrequest[MAXPLAYERS+1]; //invite requests
 static bool pairPvPignored[MAXPLAYERS+1]; //invites disabled
 static bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill first actual spawn
+static float clientLatestPvPStart[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time
+static float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
 
 static DHookSetup hdl_INextBot_IsEnemy;
@@ -165,6 +167,10 @@ static GlobalForward fwdPairChanged;
 #define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && !(globalPvP[%1]&State_ExternalOff))
 #define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && !(mirrorDamage[%1]&State_ExternalOff))
 
+#define PvP_DISENGAGE_COOLDOWN 30.0
+#define PvP_PAIRREQUEST_COOLDOWN 15.0
+#define PvP_PAIRVOTE_DISPLAYTIME 10
+
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
 	cvar.GetDefault(def, sizeof(def));
@@ -203,7 +209,9 @@ public void OnPluginStart() {
 	RegClientCookie(COOKIE_CONDITIONS, "Client is find with being jarated, etc for funnies", CookieAccess_Private);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
-	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "End all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
+	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
+	RegConsoleCmd("sm_rejectpvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
+	RegConsoleCmd("sm_declinepvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
 	RegConsoleCmd("sm_mirrorme", Command_MirrorMe, "Turn on mirror damage for attacking non-PvP players");
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
@@ -427,6 +435,8 @@ public void OnClientConnected(int client) {
 	allowTauntKilled[client]=false;
 	allowLimitedConditions[client]=false;
 	mirrorDamage[client] = State_Disabled;
+	clientLatestPvPStart[client] = -PvP_DISENGAGE_COOLDOWN;
+	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 }
 public void OnClientDisconnect(int client) {
 	globalPvP[client] = State_Disabled;
@@ -437,6 +447,8 @@ public void OnClientDisconnect(int client) {
 	allowTauntKilled[client]=false;
 	allowLimitedConditions[client]=false;
 	mirrorDamage[client] = State_Disabled;
+	clientLatestPvPStart[client] = -PvP_DISENGAGE_COOLDOWN;
+	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 	for (int i=1;i<=MaxClients;i++)
 		if (pairPvPrequest[i]==client)
 			pairPvPrequest[i]=0;
@@ -738,7 +750,7 @@ public Action Command_ForceRequest(int client, int args) {
 	}
 	
 	GetCmdArg(1, pattern, sizeof(pattern));
-	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
 	if (matches <= 0) {
 		ReplyToTargetError(client, matches);
 		return Plugin_Handled;
@@ -746,7 +758,7 @@ public Action Command_ForceRequest(int client, int args) {
 		fakesource = target[0];
 	}
 	GetCmdArg(2, pattern, sizeof(pattern));
-	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
+	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
 	if (matches <= 0) {
 		ReplyToTargetError(client, matches);
 		return Plugin_Handled;
@@ -763,7 +775,15 @@ public Action Command_ForceRequest(int client, int args) {
 }
 public Action Command_TogglePvP(int client, int args) {
 	if (GetCmdArgs()==0) {
-		SetGlobalPvP(client, !(globalPvP[client]&State_Enabled));
+		bool enterPvP = !(globalPvP[client]&State_Enabled);
+		//timeLeft = cooldown - time spent in pvp
+		float timeLeft = PvP_DISENGAGE_COOLDOWN - (GetClientTime(client) - clientLatestPvPStart[client]);
+		if (!enterPvP && timeLeft > 0.0) {
+			CPrintToChat(client, "%t", "Entered global pvp too recently", RoundToCeil(timeLeft));
+			return Plugin_Handled;
+		}
+		if (enterPvP) clientLatestPvPStart[client] = GetClientTime(client);
+		SetGlobalPvP(client, enterPvP);
 	} else {
 		char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
 		GetCmdArgString(pattern, sizeof(pattern));
@@ -774,7 +794,7 @@ public Action Command_TogglePvP(int client, int args) {
 			//ReplyToTargetError(client, matches);
 			ShowPlayerPairPvPMenu(client);
 		} else {
-			RequestPairPvP(client, target[0]);
+			RequestPairPvP(client, target[0], true);
 		}
 	}
 	return Plugin_Handled;
@@ -804,7 +824,7 @@ public int HandlePickPlayerMenu(Menu menu, MenuAction action, int param1, int pa
 			CPrintToChat(param1, "%t", "Player no longer available");
 			ShowPlayerPairPvPMenu(param1);
 		} else {
-			RequestPairPvP(param1, target);
+			RequestPairPvP(param1, target, true);
 		}
 	}
 }
@@ -909,8 +929,16 @@ public Action Command_MirrorMe(int client, int args) {
 }
 
 public Action Command_StopPvP(int client, int args) {
+	bool primary;
+	if (ArrayFind(client, pairPvPrequest, sizeof(pairPvPrequest))) {
+		DeclinePairPvP(client);
+		primary = true;
+	}
 	if (HasAnyPairPvP(client)) {
 		EndAllPairPvPFor(client);
+		primary = true;
+	}
+	if (primary) {
 		CPrintToChat(client, "%t", "Use command again to toggle ignore");
 	} else {
 		SetPairPvPIgnored(client, !pairPvPignored[client]);
@@ -918,11 +946,14 @@ public Action Command_StopPvP(int client, int args) {
 	return Plugin_Handled;
 }
 
-static void RequestPairPvP(int requester, int requestee) {
+static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
+	float tmp;
 	if (requester == requestee) {
 		//silent fail
-	} else if (IsFakeClient(requestee)) {
-		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
+	} else if (antiSpam && (tmp = (PvP_PAIRREQUEST_COOLDOWN - (GetClientTime(requester) - clientLatestPvPRequest[requester]))) > 0.0) {
+		CPrintToChat(requester, "%t", "Last pair pvp request too recent", RoundToCeil(tmp));
+//	} else if (IsFakeClient(requestee)) {
+//		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
 	} else if (pairPvP[requester][requestee]) {
 		CPrintToChat(requestee, "%t", "Someone disengaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You disengaged pair pvp", requestee);
@@ -948,6 +979,7 @@ static void RequestPairPvP(int requester, int requestee) {
 			}
 			CPrintToChat(requestee, "%t", "Someone requested pvp, confirm", requester, requester);
 			CPrintToChat(requester, "%t", "You requested pvp", requestee);
+			if (antiSpam) clientLatestPvPRequest[requester] = GetClientTime(requester);
 			pairPvPrequest[requester] = requestee;
 			if (pairPvPRequestMenu) {
 				if (depNativeVotes && pairPvPRequestMenu == 1) VotePairPvPRequest(requester, requestee);
@@ -991,7 +1023,7 @@ static void VotePairPvPRequest(int requester, int requestee) {
 	vote.Initiator = requester;
 	vote.SetTarget(requestee);
 	int clients[1];clients[0]=requestee;
-	vote.DisplayVote(clients, 1, 10, VOTEFLAG_NO_REVOTES);
+	vote.DisplayVote(clients, 1, PvP_PAIRVOTE_DISPLAYTIME, VOTEFLAG_NO_REVOTES);
 	
 	ForceEndNativeVote(requester);
 	any vdata[4];
@@ -1051,7 +1083,7 @@ static void MenuPairPvPRequest(int requester, int requestee) {
 	menu.AddItem("0", buffer);
 	Format(buffer, sizeof(buffer), "%T", "No", requestee);
 	menu.AddItem("1", buffer);
-	menu.Display(requestee, 10);
+	menu.Display(requestee, PvP_PAIRVOTE_DISPLAYTIME);
 	
 	any vdata[3];
 	vdata[0] = menu;

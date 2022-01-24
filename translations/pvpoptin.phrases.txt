@@ -117,6 +117,16 @@
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've declined {1}'s request for {azure}Pair PvP{default}."
 	}
+	"Last pair pvp request too recent"
+	{
+		"#format" "{1:d}"
+		"en"	"{darkviolet}[PvP]{default} Please wait {1} more seconds before sending more {azure}Pair PvP{default} requests."
+	}
+	"Entered global pvp too recently"
+	{
+		"#format" "{1:d}"
+		"en"	"{darkviolet}[PvP]{default} You have to wait {1} more seconds to leave {goldenrod}Global PvP{default}."
+	}
 	"Global pvp state on line1"
 	{
 		"en"	"{darkviolet}[PvP]{default} You turned {goldenrod}Global PvP {limegreen}ON{default}"
