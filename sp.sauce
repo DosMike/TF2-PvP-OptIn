@@ -13,6 +13,7 @@ dependency github Adrianilloo/Collisionhook 0.2
 #get additional information about conditions with this
 # nosoop is usually really quick at updating gamedata as well
 dependency github nosoop/SM-TFUtils 0.14.1.1
+dependency github sapphonie/sourcemod-nativevotes-updated latest
 
 #compile
 compilepool 1

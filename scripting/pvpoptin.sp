@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w04a"
+#define PLUGIN_VERSION "22w08a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -110,7 +110,7 @@ static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1]; //double reffed so order doesn'
 static int pairPvPrequest[MAXPLAYERS+1]; //invite requests
 static bool pairPvPignored[MAXPLAYERS+1]; //invites disabled
 static bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill first actual spawn
-static float clientLatestPvPStart[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time
+static float clientLatestPvPAction[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time. (entering, attacking, getting attacked)
 static float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
 
@@ -233,7 +233,7 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_win", OnRoundStateChange);
 	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
 	
-	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
+	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY|FCVAR_DONTRECORD);
 	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", _, true, -1.0, true, 1.0);
 	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", _, true, 0.0, true, 2.0);
 	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", _);
@@ -370,15 +370,18 @@ public void OnMapEnd() {
 public void OnMapStart() {
 	UpdateActiveState(GameState_PreGame);
 }
+public void TF2_OnWaitingForPlayersStart() {
+	UpdateActiveState(GameState_Waiting);
+}
+public void TF2_OnWaitingForPlayersEnd() {
+	UpdateActiveState(GameState_PreGame);
+}
 public void OnRoundStateChange(Event event, const char[] name, bool dontBroadcast) {
-	if (StrEqual(name, "teamplay_waiting_begins")) { //pregame, waiting for players
-		UpdateActiveState(GameState_PreGame|GameState_Waiting);
-	} else if (StrEqual(name, "teamplay_waiting_ends")) { //pregame
-		UpdateActiveState(GameState_PreGame);
-	} else if (StrEqual(name, "teamplay_round_start") ||
+	if (StrEqual(name, "teamplay_round_start") ||
 			StrEqual(name, "teamplay_overtime_end") ||
 			StrEqual(name, "teamplay_suddendeath_end")) { //running
-		UpdateActiveState(GameState_Running);
+		if (currentGameState&GameState_Waiting != GameState_Waiting)
+			UpdateActiveState(GameState_Running);
 	} else if (StrEqual(name, "teamplay_overtime_begin")) { //overtime
 		UpdateActiveState(GameState_Overtime);
 	} else if (StrEqual(name, "teamplay_suddendeath_begin")) { //sudden death
@@ -411,6 +414,7 @@ static void HotloadGameState() {
 static void UpdateActiveState(eGameState gameState) {
 	bool wasActive = isActive;
 	isActive = (activeGameStates & (currentGameState=gameState))!=GameState_Never;
+	PrintToServer("PvP OptIn active state: %i (Game State %i)", isActive, gameState);
 	if (isActive != wasActive) {
 		if (isActive) {
 			CPrintToChatAll("%t", "Plugin now active");
@@ -435,20 +439,11 @@ public void OnClientConnected(int client) {
 	allowTauntKilled[client]=false;
 	allowLimitedConditions[client]=false;
 	mirrorDamage[client] = State_Disabled;
-	clientLatestPvPStart[client] = -PvP_DISENGAGE_COOLDOWN;
+	clientLatestPvPAction[client] = -PvP_DISENGAGE_COOLDOWN;
 	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 }
 public void OnClientDisconnect(int client) {
-	globalPvP[client] = State_Disabled;
-	SetPairPvPClient(client);
-	pairPvPrequest[client]=0;
-	pairPvPignored[client]=false;
-	clientFirstSpawn[client]=true;
-	allowTauntKilled[client]=false;
-	allowLimitedConditions[client]=false;
-	mirrorDamage[client] = State_Disabled;
-	clientLatestPvPStart[client] = -PvP_DISENGAGE_COOLDOWN;
-	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
+	OnClientConnected(client);
 	for (int i=1;i<=MaxClients;i++)
 		if (pairPvPrequest[i]==client)
 			pairPvPrequest[i]=0;
@@ -777,12 +772,12 @@ public Action Command_TogglePvP(int client, int args) {
 	if (GetCmdArgs()==0) {
 		bool enterPvP = !(globalPvP[client]&State_Enabled);
 		//timeLeft = cooldown - time spent in pvp
-		float timeLeft = PvP_DISENGAGE_COOLDOWN - (GetClientTime(client) - clientLatestPvPStart[client]);
+		float timeLeft = PvP_DISENGAGE_COOLDOWN - (GetClientTime(client) - clientLatestPvPAction[client]);
 		if (!enterPvP && timeLeft > 0.0) {
 			CPrintToChat(client, "%t", "Entered global pvp too recently", RoundToCeil(timeLeft));
 			return Plugin_Handled;
 		}
-		if (enterPvP) clientLatestPvPStart[client] = GetClientTime(client);
+		if (enterPvP) clientLatestPvPAction[client] = GetClientTime(client);
 		SetGlobalPvP(client, enterPvP);
 	} else {
 		char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
@@ -1220,12 +1215,14 @@ static void SetLimitedConditionsAllowed(int client, bool enabled) {
 	else CPrintToChat(client, "%t", "Limited Conditions Disabled");
 }
 
-static bool CanClientsPvP(int client1, int client2) {
-	return client1==client2 ||
-		globalPvP[0]!=State_Disabled ||
-		(IsGlobalPvP(client1) && IsGlobalPvP(client2)) ||
-		pairPvP[client1][client2];
-		//duels should be checked here
+static int CanClientsPvP(int client1, int client2) {
+	int canpvp;
+	if (client1==client2) canpvp |= 1;
+	if (globalPvP[0]!=State_Disabled) canpvp |= 2;
+	if (IsGlobalPvP(client1) && IsGlobalPvP(client2)) canpvp |= 4;
+	if (pairPvP[client1][client2]) canpvp |= 8;
+	return canpvp;
+	//duels should be checked here, can't real tho, that's GC stuff
 }
 //endregion
 
@@ -1413,14 +1410,20 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	if (!isActive)
 		return Plugin_Continue;
 	
+	int pvpGrant;
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
-	if (!Client_IsValid(source))
+	if (!Client_IsValid(source)) //didnt bring your hazardous environment suit?
 		return Plugin_Continue;
-	
-	else if (victim == source || CanClientsPvP(victim, source))
+	else if ((pvpGrant=CanClientsPvP(victim,source))) {
+		//don't update cooldowns if we're forced into pvp or damage is self-inflicted
+		// for now reset cooldowns on any pvp
+		if (pvpGrant&3 == 0 && pvpGrant&12 != 0) {
+			if (!IsFakeClient(victim)) clientLatestPvPAction[victim] = GetClientTime(victim);
+			if (!IsFakeClient(source)) clientLatestPvPAction[source] = GetClientTime(source);
+		}
 		return Plugin_Continue; //pvp is on, go nuts
-	else if (IsMirrored(source)) {
+	} else if (IsMirrored(source)) {
 		if (damagecustom == TF_CUSTOM_BACKSTAB)
 			damage = GetClientHealth(source) * 6.0;
 		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
@@ -1670,19 +1673,21 @@ static bool IsEntityBuilding(const char[] classname) {
 }
 
 static int GetPlayerDamageSource(int attacker, int inflictor) {
-	int source = attacker;
+	int source;
 	if (IsValidEntity(attacker) && 1 <= attacker <= MaxClients) 
 		return attacker;
 	// Sometimes the attacker won't be a player
-	else if (IsValidEntity(inflictor) && 1 <= (source = GetPlayerEntity(inflictor)) <= MaxClients) 
-		// so we try to determin the player damage source from the inflictor. mostly projectiles
-		return source;
+	// try to resolve the attacker first:
+	//  if someone shoots a vehicle, vehicle redirects the damage to the driver with the vehicle as inflictor
 	else if (IsValidEntity(attacker) && 1 <= (source = GetPlayerEntity(attacker)) <= MaxClients)
 		// if that's not a player, we try to get the damage source from the attacker entity. this will mostly be npcs tho
 		return source;
+	else if (IsValidEntity(inflictor) && 1 <= (source = GetPlayerEntity(inflictor)) <= MaxClients) 
+		// so we try to determin the player damage source from the inflictor. mostly projectiles
+		return source;
 	else
 		// if we still couldn't find a player, we give up
-		return INVALID_ENT_REFERENCE ;
+		return INVALID_ENT_REFERENCE;
 }
 
 //endregion
