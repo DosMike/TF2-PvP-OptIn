@@ -414,7 +414,6 @@ static void HotloadGameState() {
 static void UpdateActiveState(eGameState gameState) {
 	bool wasActive = isActive;
 	isActive = (activeGameStates & (currentGameState=gameState))!=GameState_Never;
-	PrintToServer("PvP OptIn active state: %i (Game State %i)", isActive, gameState);
 	if (isActive != wasActive) {
 		if (isActive) {
 			CPrintToChatAll("%t", "Plugin now active");
