@@ -10,7 +10,8 @@
 	}
 	"SettingsMenuTitle"
 	{
-		"en"	"Opt In PvP\n \n'Mirror Damage' will hurt yourself if target is not in PvP.\n'Taunt Kill Me' allows other players to taunt kill you reguardless of PvP state."
+		//will break the menu if too long (currently 356 chars ignoring changes in labels)
+		"en"	"Opt In PvP\n \n'Ignore Pair PvP' prevents other players from requesting PvP with you.\n'Mirror Damage' will hurt yourself if target is not in PvP.\n'Taunt Kill Me' allows other players to taunt kill you reguardless of PvP state.\n'Allow some conditions' will re-enable some conditions while not in PvP.\n  (Jarated, Milked, ...)\n "
 	}
 	"SettingsMenuGlobal"
 	{
@@ -28,6 +29,10 @@
 	{
 		"en"	"Taunt Kill Me"
 	}
+	"SettingsMenuConditions"
+	{
+		"en"	"Allow some conditions"
+	}
 	"Pick player for pvp"
 	{
 		"en"	"Pick a player for PvP"
@@ -35,6 +40,10 @@
 	"Bots can not use pair pvp"
 	{
 		"en"	"{darkviolet}[PvP]{default} Sorry, bots can not use {azure}Pair PvP{default}!"
+	}
+	"Requester is Requestee"
+	{
+		"en"	"Requester and requestee cannot be the same"
 	}
 	"Someone disengaged pair pvp"
 	{
@@ -48,7 +57,7 @@
 	}
 	"You disengaged all pair pvp"
 	{
-		"en"	"{darkviolet}[PvP]{defaut} You disengaged from all {azure}Pair PvP{default}."
+		"en"	"{darkviolet}[PvP]{default} You disengaged from all {azure}Pair PvP{default}."
 	}
 	"You engaged pair pvp"
 	{
@@ -63,6 +72,10 @@
 	{
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've already requested PvP with {1}"
+	}
+	"There is a pending request with menus"
+	{
+		"en"	"{darkviolet}[PvP]{default} This player already has a pending PvP request"
 	}
 	"Someone cancelled pvp request for another"
 	{
@@ -84,6 +97,11 @@
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've requested PvP with {1}."
 	}
+	"Vote Title PvP Request"
+	{
+		"#format" "{1:N}"
+		"en"	"{1} requested pair PvP\nDo you Accept?"
+	}
 	"Your pvp request was declined"
 	{
 		"#format" "{1:N}"
@@ -98,6 +116,16 @@
 	{
 		"#format" "{1:N}"
 		"en"	"{darkviolet}[PvP]{default} You've declined {1}'s request for {azure}Pair PvP{default}."
+	}
+	"Last pair pvp request too recent"
+	{
+		"#format" "{1:d}"
+		"en"	"{darkviolet}[PvP]{default} Please wait {1} more seconds before sending more {azure}Pair PvP{default} requests."
+	}
+	"Entered global pvp too recently"
+	{
+		"#format" "{1:d}"
+		"en"	"{darkviolet}[PvP]{default} You have to wait {1} more seconds to leave {goldenrod}Global PvP{default}."
 	}
 	"Global pvp state on line1"
 	{
@@ -150,6 +178,14 @@
 	"Taunt Kills Disabled"
 	{
 		"en"	"{darkviolet}[PvP]{default} You can no longer be taunt-killed"
+	}
+	"Limited Conditions Enabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Players can now inflict minor conditions on you"
+	}
+	"Limited Conditions Disabled"
+	{
+		"en"	"{darkviolet}[PvP]{default} Minor conditions are blocked outside of PvP"
 	}
 	"Someone forced map pvp"
 	{

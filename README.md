@@ -33,6 +33,9 @@ Can be used to disable player collision between enemies.
 **`pvp_gamestates "all"`**   
 The game states when this plugin should be active or all if it should always run. Following states are possible: all, waiting, pregame, running, overtime, suddendeath, gameover
 
+**`pvp_requestmenus "1"`**   
+When players request pair PvP: 0 = requeste will have to use /pvp requester, 1 = requestee will receive a menu, 2 = will force VGUI menus
+
 **`pvp_buildings_vs_zombies "2"`**   
 Control sentry <-> skeleton targeting.   
 Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always
@@ -88,6 +91,9 @@ Force mirror damage on someone. Mirror damage only affects players that are not 
 **`/mirrorme`**
 Mirror your damage agains non-PvP players.
 
+**`/fakepvprequest <requester> <requestee>`**
+Send a pair PvP request from requester to requestee.
+
 **New Target Selectors:**
 - `@pvp` Select all players with global PvP enabled
 - `@!pvp` Select all players with global PvP enabled
@@ -100,6 +106,7 @@ Install the following required plugins:
 - [DHooks](https://forums.alliedmods.net/showpost.php?p=2588686&postcount=589)
 - [CollisionHook](https://github.com/Adrianilloo/Collisionhook/releases)
 - [TF Utils](https://github.com/nosoop/SM-TFUtils/releases)
+- [NativeVotes](https://github.com/sapphonie/sourcemod-nativevotes-updated) (Optional)
 
 **Note:** DHooks was added to SM 1.11, you might not need to download it in the future.
 
