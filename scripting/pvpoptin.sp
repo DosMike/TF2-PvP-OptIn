@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w08a"
+#define PLUGIN_VERSION "22w09a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -97,6 +97,16 @@ enum ePlayerVsAiFlags {
 	PvA_ZOMBIES = 0x0f,
 	PvA_BOSSES = 0xf0,
 }
+enum ParticleAttachment_t { // particle_parse.h
+	PATTACH_INVALID = -1,			// Not in original, indicates invalid initial value
+	PATTACH_ABSORIGIN = 0,			// Create at absorigin, but don't follow
+	PATTACH_ABSORIGIN_FOLLOW,		// Create at absorigin, and update to follow the entity
+	PATTACH_CUSTOMORIGIN,			// Create at a custom origin, but don't follow
+	PATTACH_POINT,					// Create on attachment point, but don't follow
+	PATTACH_POINT_FOLLOW,			// Create on attachment point, and update to follow the entity
+	PATTACH_WORLDORIGIN,			// Used for control points that don't attach to an entity
+	PATTACH_ROOTBONE_FOLLOW,		// Create at the root bone of the entity, and update to follow
+};
 
 static bool depNativeVotes; //is NativeVotes loaded?
 
@@ -147,6 +157,8 @@ static ConVar cvar_ColorGlobalOnBlu;
 static ConVar cvar_ColorGlobalOffRed;
 static ConVar cvar_ColorGlobalOffBlu;
 static int playerStateColors[4][4];
+static ConVar cvar_UsePvPParticle;
+static bool usePvPParticle;
 static ConVar cvar_BuildingsVersusZombies;
 static ConVar cvar_BuildingsVersusBosses;
 static ePlayerVsAiFlags pvaBuildings;
@@ -170,6 +182,9 @@ static GlobalForward fwdPairChanged;
 #define PvP_DISENGAGE_COOLDOWN 30.0
 #define PvP_PAIRREQUEST_COOLDOWN 15.0
 #define PvP_PAIRVOTE_DISPLAYTIME 10
+
+//#define PVP_PARTICLE "healthlost_red"
+#define PVP_PARTICLE "mark_for_death"
 
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
@@ -247,6 +262,7 @@ public void OnPluginStart() {
 	cvar_ColorGlobalOnBlu = CreateConVar( "pvp_playertaint_bluon", "255 125 125", "Color for players on BLU with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
 	cvar_ColorGlobalOffRed = CreateConVar( "pvp_playertaint_redoff", "255 255 225", "Color for players on RED with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
 	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
+	cvar_UsePvPParticle = CreateConVar( "pvp_playerparticle_enable", "1", "Play a particle on players that can be PvPed. Playes for both global and pair PvP", _, true, 0.0, true, 1.0);
 	//hook cvars and load current values
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
@@ -262,6 +278,7 @@ public void OnPluginStart() {
 	hookAndLoadCvar(cvar_ColorGlobalOnBlu, OnCVarChanged_PlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOffRed, OnCVarChanged_PlayerTaint);
 	hookAndLoadCvar(cvar_ColorGlobalOffBlu, OnCVarChanged_PlayerTaint);
+	hookAndLoadCvar(cvar_UsePvPParticle, OnCVarChanged_UsePvPParticle);
 	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
 	AutoExecConfig();
 	
@@ -274,13 +291,14 @@ public void OnPluginStart() {
 	for (int i=1;i<=MaxClients;i++) {
 		if(IsClientConnected(i)) {
 			OnClientConnected(i);
-			if (IsClientInGame(i))
+			if (IsClientInGame(i)) {
 				SDKHookClient(i);
-			if (AreClientCookiesCached(i))
-				OnClientCookiesCached(i);
-			if (IsPlayerAlive(i)) {
-				OnClientSpawnPost(i);
-				hotload = true;
+				if (AreClientCookiesCached(i))
+					OnClientCookiesCached(i);
+				if (IsPlayerAlive(i)) {
+					OnClientSpawnPost(i);
+					hotload = true;
+				}
 			}
 		}
 	}
@@ -369,6 +387,9 @@ public void OnMapEnd() {
 
 public void OnMapStart() {
 	UpdateActiveState(GameState_PreGame);
+	
+	PrecacheParticleSystem(PVP_PARTICLE);
+	CreateTimer(0.5, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
 public void TF2_OnWaitingForPlayersStart() {
 	UpdateActiveState(GameState_Waiting);
@@ -717,6 +738,15 @@ public void OnCVarChanged_PlayerTaint(ConVar convar, const char[] oldValue, cons
 		}
 	}
 }
+public void OnCVarChanged_UsePvPParticle(ConVar convar, const char[] oldValue, const char[] newValue) {
+	if (!(usePvPParticle = convar.BoolValue)) {
+		for (int client=1;client<=MaxClients;client++) {
+			if (Client_IsIngame(client) && GetClientTeam(client)>1) {
+				ParticleEffectStop(client);
+			}
+		}
+	}
+}
 //enregion
 
 //region command and toggling/requesting pvp
@@ -858,7 +888,7 @@ public Action Command_ForcePvP(int client, int args) {
 			} else {
 				for (int i;i<matches;i++) {
 					int player = target[i];
-					if (!Client_IsIngame(i)) continue;
+					if (!Client_IsIngame(player)) continue;
 					if (pvpon) {
 						globalPvP[player] |= State_Forced;
 						CPrintToChat(player, "%t","Someone forced your global pvp", client);
@@ -1437,6 +1467,8 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 }
 static void OnClientSpawnPost(int client) {
 	if (GetClientTeam(client)<=1 || IsFakeClient(client)) return;
+	
+	clientLatestPvPAction[client] = GetClientTime(client)-PvP_DISENGAGE_COOLDOWN;
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	if (clientFirstSpawn[client]) {
 		clientFirstSpawn[client] = false;
@@ -1469,6 +1501,7 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (!pvp && isActive) ci+=2;
 	if (usePlayerStateColors)
 		SetPlayerColor(client, playerStateColors[ci][0], playerStateColors[ci][1], playerStateColors[ci][2], playerStateColors[ci][3]);
+	if (usePvPParticle && !pvp) ParticleEffectStop(client);
 }
 
 //endregion
@@ -1630,6 +1663,78 @@ static void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=25
 		}
 	}
 }
+public Action Timer_PvPParticles(Handle timer) {
+	if (usePvPParticle) {
+		for (int client=1;client<=MaxClients;client++) {
+			if (Client_IsIngame(client) && IsPlayerAlive(client))
+				PlayPvPParticles(client);
+		}
+	}
+	
+	return Plugin_Continue;
+}
+static void PlayPvPParticles(int client) {
+	int targets[MAXPLAYERS], tcount;
+	if (IsGlobalPvP(client)) {
+		for (int c=1;c<=MaxClients;c++) {
+			if (c!=client && Client_IsIngameAuthorized(c)) targets[tcount++]=c;
+		}
+	} else {
+		for (int c=1;c<=MaxClients;c++) {
+			if (c!=client && pairPvP[client][c]) targets[tcount++]=c;
+		}
+	}
+	static int AttachPoint_PartyHat[10]={0,10,7,8,6,7,8,24,8,4};//mostly partyhat, sometime head. count from "(none)"==0 in HLMV
+	
+	if (tcount) {
+		float angles[3];
+		float zero[3];
+		float offset[3]={0.0, 0.0, 12.0};
+		GetClientEyeAngles(client, angles);
+		TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,PATTACH_POINT_FOLLOW,AttachPoint_PartyHat[TF2_GetPlayerClass(client)],true);
+		TE_Send(targets, tcount);
+	}
+}
+static void ParticleEffectStop(int entity) {
+	SetVariantString("ParticleEffectStop");
+	AcceptEntityInput(entity, "DispatchEffect");
+}
+
+//https://forums.alliedmods.net/showthread.php?t=75102
+static void TE_StartParticle(const char[] name, float pos[3], float offset[3], float angles[3], int parentTo=-1, ParticleAttachment_t attachType=PATTACH_INVALID, int attachPoint=-1, bool reset=false) {
+	static int table = INVALID_STRING_TABLE;
+	if (table == INVALID_STRING_TABLE) {
+		if ((table=FindStringTable("ParticleEffectNames"))==INVALID_STRING_TABLE)
+			ThrowError("Could not find string table for particles");
+	}
+	char tmp[64];
+	int count = GetStringTableNumStrings(table);
+	int index = INVALID_STRING_INDEX;
+	for (int i;i<count;i++) {
+		ReadStringTable(table, i, tmp, sizeof(tmp));
+		if (StrEqual(tmp, name)) {
+			index = i; break;
+		}
+//		PrintToServer("Particle: %s", tmp);
+	}
+	if (index == INVALID_STRING_INDEX) {
+		ThrowError("Could not find particle in string table");
+	}
+	TE_Start("TFParticleEffect");
+	TE_WriteFloat("m_vecOrigin[0]", pos[0]);
+	TE_WriteFloat("m_vecOrigin[1]", pos[1]);
+	TE_WriteFloat("m_vecOrigin[2]", pos[2]);
+	TE_WriteFloat("m_vecStart[0]", offset[0]);
+	TE_WriteFloat("m_vecStart[1]", offset[1]);
+	TE_WriteFloat("m_vecStart[2]", offset[2]);
+	TE_WriteVector("m_vecAngles", angles);
+	TE_WriteNum("m_iParticleSystemIndex", index);
+	if (parentTo!=-1) TE_WriteNum("entindex", parentTo);
+	if (attachType!=PATTACH_INVALID) TE_WriteNum("m_iAttachType", view_as<int>(attachType));
+	if (attachPoint!=-1) TE_WriteNum("m_iAttachmentPointIndex", attachPoint);
+	TE_WriteNum("m_bResetParticles", reset?1:0);
+}
+
 /**
  * Use -1 for haystacksize if the array is 0-terminated, -2 if it is negative-terminated
  */

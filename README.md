@@ -69,6 +69,9 @@ Color for players on RED with global PvP enabled.
 
 For all colors for format is `R G B A` from 0 to 255 or web color `#RRGGBBAA`. Alpha is optional.
 
+**`pvp_playerparticle_enable "1"`**   
+Play a particle on players that can be PvPed. Playes for both global and pair PvP
+
 ### Commands:
 
 **`/pvp`**   
