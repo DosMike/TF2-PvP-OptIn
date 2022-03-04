@@ -70,7 +70,11 @@ Color for players on RED with global PvP enabled.
 For all colors for format is `R G B A` from 0 to 255 or web color `#RRGGBBAA`. Alpha is optional.
 
 **`pvp_playerparticle_enable "1"`**   
-Play a particle on players that can be PvPed. Playes for both global and pair PvP
+Play a particle on players that can be PvPed (`mark_for_death`). Playes for both global and pair PvP.
+
+There is a really cool pvp inicator particle system in the `clientmod/` directory, but due to how TF2 is not loading 
+custom particle systems from the server, I can't use it. In case you want to take a look, I added some instructions on
+how to use the particle. Thanks to FancyNight and sigmarune for making that custom particle system :)
 
 ### Commands:
 

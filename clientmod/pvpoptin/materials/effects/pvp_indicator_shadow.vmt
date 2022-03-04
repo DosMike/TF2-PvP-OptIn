@@ -1,0 +1,8 @@
+"SpriteCard"
+{
+	"$basetexture" "effects/pvp_indicator_shadow"
+	$vertexalpha 1
+	$vertexcolor 1
+	$nocull 1
+}
+
