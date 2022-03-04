@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w09a"
+#define PLUGIN_VERSION "22w09b"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -37,7 +37,7 @@ public Plugin myinfo = {
 
 //#define PVP_PARTICLE "pvpoptin_indicator"
 #define PVP_PARTICLE "mark_for_death"
-// the offset should be 0 for the custom particle, 12-16 is good for marked for death
+// the offset should be 0.0 for the custom particle, 16.0 is good for marked for death
 #define PVP_PARTICLE_OFFSET 16.0
 
 // ----------      other stuff below - better don''t touch ;)      ----------
