@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w09b"
+#define PLUGIN_VERSION "22w11a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -1419,7 +1419,7 @@ public void OnEntityCreated(int entity, const char[] classname) {
 }
 
 static void SDKHookClient(int client) {
-	SDKHook(client, SDKHook_OnTakeDamage, OnClientTakeDamage);
+	SDKHook(client, SDKHook_OnTakeDamageAlive, OnClientTakeDamage);
 	SDKHook(client, SDKHook_SpawnPost, OnClientSpawnPost);
 }
 
