@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w12a"
+#define PLUGIN_VERSION "22w12b"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -1395,7 +1395,7 @@ public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam h
 //keep as simple and quick as possible
 //don't check result, that does NOT pass the previous result!
 public Action CH_PassFilter(int ent1, int ent2, bool &result) {
-	if (noCollideState && 1<=ent1<=MaxClients && 1<=ent2<=MaxClients) {
+	if (isActive && noCollideState && 1<=ent1<=MaxClients && 1<=ent2<=MaxClients) {
 		//pass 1, collision mod is on and we have clients
 		int team1 = GetClientTeam(ent1);
 		int team2 = GetClientTeam(ent2);
