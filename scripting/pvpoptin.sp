@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w11a"
+#define PLUGIN_VERSION "22w12a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -142,6 +142,7 @@ static bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill firs
 static float clientLatestPvPAction[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time. (entering, attacking, getting attacked)
 static float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
 static int clientParticleAttached[MAXPLAYERS+1]; //simple tracking for players that should currently be playing the pvp particle
+static bool clientForceUpdateParticle[MAXPLAYERS+1];
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
 
 static DHookSetup hdl_INextBot_IsEnemy;
@@ -406,8 +407,8 @@ public void OnMapEnd() {
 public void OnMapStart() {
 	UpdateActiveState(GameState_PreGame);
 	
-	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
-	PrecacheParticleSystem("pvpoptin_indicator");
+//	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
+	PrecacheParticleSystem(PVP_PARTICLE);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
 public void TF2_OnWaitingForPlayersStart() {
@@ -481,6 +482,7 @@ public void OnClientConnected(int client) {
 	clientLatestPvPAction[client] = -PvP_DISENGAGE_COOLDOWN;
 	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 	clientParticleAttached[client] = 0;
+	clientForceUpdateParticle[client] = false;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
 	}
@@ -1505,6 +1507,7 @@ static void OnClientSpawnPost(int client) {
 }
 public void OnInventoryApplicationPost(Event event, const char[] name, bool dontBroadcast) {
 	int client = GetClientOfUserId(event.GetInt("userid"));
+	if (usePvPParticle) clientForceUpdateParticle[client] = true;
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 }
 
@@ -1513,7 +1516,10 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 	if (!isActive) return;
 	
 	//hide particle effect when cloaking
-	if (usePvPParticle && condition == TFCond_Cloaked) ParticleEffectStop(client);
+	if (usePvPParticle) {
+		if (condition == TFCond_Cloaked) ParticleEffectStop(client);
+		if (condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+	}
 	
 	if ((at = ArrayFind(condition, pvpConditions, sizeof(pvpConditions)))<0)
 		return; //not a condition we manage
@@ -1525,6 +1531,12 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 		return; //target is fine with conditions
 	TF2_RemoveCondition(client, condition);
 }
+
+public void TF2_OnConditionRemoved(int client, TFCond condition) {
+	if (!isActive) return;
+	if (usePvPParticle && condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+}
+
 
 static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (!Client_IsIngame(client)) return;
@@ -1695,7 +1707,7 @@ static void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=25
 		}
 	}
 }
-// this timer is kinda required for players that join late
+// this timer is kinda required for players that join late, disguise, ect...
 public Action Timer_PvPParticles(Handle timer) {
 	if (usePvPParticle) {
 		for (int client=1;client<=MaxClients;client++) {
@@ -1709,22 +1721,25 @@ public Action Timer_PvPParticles(Handle timer) {
 static void UpdatePvPParticles(int client) {
 	//head attachment points, sourcemod has no builtin to lookup so i just hardcode
 	// count from "(none)"==0 in HLMV
-	static int AttachPoint_PartyHat[10]={ 0,
+	static int AttachPoint_Head[10]={ 0,
 		/* scout */ 12, /* sniper */ 8, /* soldier */ 8,
 		/* demo  */  7, /* medic  */ 8, /* heavy   */ 8,
-		/* pyro  */  1, /* spy    */ 0, /* engi    */ 5,
+		/* pyro  */  1, /* spy    */ 10, /* engi    */ 5,
 	};
 	int targets[MAXPLAYERS], tcount, tmask;
 	if (!Client_IsIngame(client)) return;
 	if (!TF2_IsPlayerInCondition(client, TFCond_Cloaked)) {
 		if (IsGlobalPvP(client)) {
 			for (int c=1;c<=MaxClients;c++) {
-				if (c != client && Client_IsIngameAuthorized(c)) targets[tcount++]=c;
+				if( //c != client &&
+					Client_IsIngameAuthorized(c) )
+					targets[tcount++]=c;
 			}
 			tmask = -1; //visible to all
 		} else {
 			for (int c=1;c<=MaxClients;c++) {
-				if (c != client && pairPvP[client][c]) {
+				if( //c != client &&
+					pairPvP[client][c] ) {
 					targets[tcount++]=c;
 					tmask |= (1<<(c-1));
 				}
@@ -1732,7 +1747,12 @@ static void UpdatePvPParticles(int client) {
 		}
 	}
 	
-	if (tmask != clientParticleAttached[client]) {
+	TFClassType effectiveClass;
+	if (TF2_IsPlayerInCondition(client, TFCond_Disguised)) effectiveClass = view_as<TFClassType>(GetEntProp(client, Prop_Send, "m_nDisguiseClass"));
+	if (effectiveClass == TFClass_Unknown) effectiveClass = TF2_GetPlayerClass(client);
+	
+	if (tmask != clientParticleAttached[client] || clientForceUpdateParticle[client]) {
+		clientForceUpdateParticle[client] = false;
 		// if particles tunred off for some clients, we have to restart them
 		// we will also simply restart them for everyone if some new gets to see it
 		if (tmask==0 || (tmask ^ clientParticleAttached[client]) & clientParticleAttached[client]) {// check for "falling edges" -> was set and changed
@@ -1745,8 +1765,7 @@ static void UpdatePvPParticles(int client) {
 			float zero[3];
 			float offset[3]={0.0, 0.0, PVP_PARTICLE_OFFSET};
 			GetClientEyeAngles(client, angles);
-			PrecacheParticleSystem(PVP_PARTICLE);
-			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,PATTACH_POINT_FOLLOW,AttachPoint_PartyHat[TF2_GetPlayerClass(client)],true);
+			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,PATTACH_POINT_FOLLOW,AttachPoint_Head[effectiveClass],true);
 			TE_Send(targets, tcount);
 		}
 		clientParticleAttached[client] = tmask;
