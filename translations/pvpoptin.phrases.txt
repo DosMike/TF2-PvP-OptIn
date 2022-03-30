@@ -122,6 +122,11 @@
 		"#format" "{1:d}"
 		"en"	"{darkviolet}[PvP]{default} Please wait {1} more seconds before sending more {azure}Pair PvP{default} requests."
 	}
+	"You have been banned from pvp"
+	{
+		"#format" "{1:i},{2:s}"
+		"en"	"{darkviolet}[PvP]{default} You have been banned from PvP for {1} minutes (Reason: {2})"
+	}
 	"Entered global pvp too recently"
 	{
 		"#format" "{1:d}"

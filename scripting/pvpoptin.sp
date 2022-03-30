@@ -143,6 +143,8 @@ static float clientLatestPvPAction[MAXPLAYERS+1]; //prevent "dodgeing" damage wi
 static float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
 static int clientParticleAttached[MAXPLAYERS+1]; //simple tracking for players that should currently be playing the pvp particle
 static bool clientForceUpdateParticle[MAXPLAYERS+1];
+static int clientPvPBannedUntil[MAXPLAYERS+1]; //int max value requires 10 chars
+static char clientPvPBannedReason[MAXPLAYERS+1][90]; //client prefs values are a varchar(100)
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
 
 static DHookSetup hdl_INextBot_IsEnemy;
@@ -196,6 +198,7 @@ static GlobalForward fwdPairChanged;
 #define COOKIE_TAUNTKILL "canBeTauntKilled"
 #define COOKIE_MIRRORME "mirrorPvPDamage"
 #define COOKIE_CONDITIONS "allowConditions"
+#define COOKIE_BANDATA "pvpBanned"
 
 #define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && !(globalPvP[%1]&State_ExternalOff))
 #define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && !(mirrorDamage[%1]&State_ExternalOff))
@@ -231,11 +234,12 @@ public void OnPluginStart() {
 		delete pvpfundata;
 	}
 	
-	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
-	RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
-	RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
-	RegClientCookie(COOKIE_TAUNTKILL, "Client is find with being taunt-killed for funnies", CookieAccess_Private);
-	RegClientCookie(COOKIE_CONDITIONS, "Client is find with being jarated, etc for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_TAUNTKILL, "Client is fine with being taunt-killed for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_CONDITIONS, "Client is fine with being jarated, etc for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp><Reason> if banned from pvp", CookieAccess_Private);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
@@ -245,6 +249,8 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
+	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> <minutes> [reason] - Ban a player from taking part in pvp");
+	RegAdminCmd("sm_unbanpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> - Unban a player from pvp");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
@@ -482,6 +488,8 @@ public void OnClientConnected(int client) {
 	clientLatestPvPAction[client] = -PvP_DISENGAGE_COOLDOWN;
 	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 	clientParticleAttached[client] = 0;
+	clientPvPBannedUntil[client] = 0;
+	clientPvPBannedReason[client][0] = 0;
 	clientForceUpdateParticle[client] = false;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
@@ -505,7 +513,7 @@ public void OnClientCookiesCached(int client) {
 		UpdateEntityFlagsGlobalPvP(client, true);
 		return;
 	}
-	char buffer[2];
+	char buffer[128];
 	Handle cookie;
 	if (joinForceState!=0) {
 		SetGlobalPvP(client, joinForceState<0);
@@ -529,6 +537,13 @@ public void OnClientCookiesCached(int client) {
 	if((cookie = FindClientCookie(COOKIE_TAUNTKILL)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		allowTauntKilled[client] = view_as<bool>(StringToInt(buffer));
 		delete cookie;
+	}
+	if((cookie = FindClientCookie(COOKIE_BANDATA)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+		int read;
+		clientPvPBannedUntil[client] = StringToIntEx(buffer,read)*60;
+		strcopy(clientPvPBannedReason[client], sizeof(clientPvPBannedReason[]), buffer[read]);
+		delete cookie;
+		BanClient(-1,client,0,"");//reload
 	}
 }
 
@@ -823,6 +838,10 @@ public Action Command_ForceRequest(int client, int args) {
 	return Plugin_Handled;
 }
 public Action Command_TogglePvP(int client, int args) {
+	if (clientPvPBannedUntil[client] > GetTime()) {
+		CPrintToChat(client, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[client]-GetTime())/60.0), clientPvPBannedReason[client]);
+		return Plugin_Handled;
+	}
 	if (GetCmdArgs()==0) {
 		bool enterPvP = !(globalPvP[client]&State_Enabled);
 		//timeLeft = cooldown - time spent in pvp
@@ -893,6 +912,7 @@ public Action Command_ForcePvP(int client, int args) {
 			else globalPvP[0] &=~ State_Forced;
 			for (int i=1;i<=MaxClients;i++) {
 				if (!Client_IsIngame(i) || IsFakeClient(i)) continue;
+				if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 				if (!pvpon) globalPvP[i] &=~ State_Forced; //turn off previously individually set flags
 				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 			}
@@ -914,6 +934,7 @@ public Action Command_ForcePvP(int client, int args) {
 				for (int i;i<matches;i++) {
 					int player = target[i];
 					if (!Client_IsIngame(player)) continue;
+					if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 					if (pvpon) {
 						globalPvP[player] |= State_Forced;
 						CPrintToChat(player, "%t","Someone forced your global pvp", client);
@@ -997,18 +1018,20 @@ public Action Command_StopPvP(int client, int args) {
 
 static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 	float tmp;
-	if (requester == requestee) {
+	if (requester == requestee || pairPvPignored[requestee] || clientPvPBannedUntil[requestee] > GetTime()) {
 		//silent fail
+	} else if (clientPvPBannedUntil[requester] > GetTime()) {
+		CPrintToChat(requester, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[requester]-GetTime())/60.0), clientPvPBannedReason[requester]);
 	} else if (antiSpam && (tmp = (PvP_PAIRREQUEST_COOLDOWN - (GetClientTime(requester) - clientLatestPvPRequest[requester]))) > 0.0) {
 		CPrintToChat(requester, "%t", "Last pair pvp request too recent", RoundToCeil(tmp));
 	} else if (IsFakeClient(requestee)) {
 		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
-	} else if (pairPvP[requester][requestee]) {
+	} else if (pairPvP[requester][requestee]) { //already paired, leave
 		CPrintToChat(requestee, "%t", "Someone disengaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You disengaged pair pvp", requestee);
 		pairPvPrequest[requester]=pairPvPrequest[requestee]=0;
 		SetPairPvP(requester,requestee,false);
-	} else if (pairPvPrequest[requestee]==requester) {
+	} else if (pairPvPrequest[requestee]==requester) { //response / accept
 		CPrintToChat(requestee, "%t", "You engaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You engaged pair pvp", requestee);
 		pairPvPrequest[requester]=pairPvPrequest[requestee]=0;
@@ -1282,6 +1305,60 @@ static int CanClientsPvP(int client1, int client2) {
 	if (pairPvP[client1][client2]) canpvp |= 8;
 	return canpvp;
 	//duels should be checked here, can't real tho, that's GC stuff
+}
+/** 
+ * admin < 0 to "reload", time and reason will be ignored
+ * time <= 0 to unban, reason will be ignored
+ * @param time in minutes
+ */
+void BanClientPvP(int admin, int client, int time, const char[] reason) {
+	bool banned;
+	if (admin >= 0) {
+		Cookie cookie = FindClientCookie(COOKIE_BANDATA);
+		if (time > 0) {
+			banned = true;
+			ShowActivity(admin, "%L was banned from PvP for %i minutes (Reason: %s)", client, time, reason);
+			clientPvPBannedUntil[client] = GetTime()+(time*60);
+			strcopy(clientPvPBannedReason[client], sizeof(clientPvPBannedReason[]), reason);
+			char buffer[100];
+			Format(buffer, sizeof(buffer), "%i %s", (clientPvPBannedUntil[client]+59)/60 /* round up */, clientPvPBannedReason[client]);
+			if (cookie != null) {
+				cookie.Set(client, buffer);
+				delete cookie;
+			}
+		} else {
+			ShowActivity(admin, "%L was unbanned from PvP", client);
+			clientPvPBannedUntil[client] = 0;
+			if (cookie != null) {
+				cookie.Set(client, "");
+				delete cookie;
+			}
+		}
+	} else if (clientPvPBannedUntil[client]) {
+		if (GetTime() > clientPvPBannedUntil[client]) { //we loaded a ban, but the ban is over?
+			clientPvPBannedUntil[client] = 0;
+			//clear cookie
+			Cookie cookie = FindClientCookie(COOKIE_BANDATA);
+			if (cookie != null) {
+				cookie.Set(client, "");
+				delete cookie;
+			}
+		} else {
+			banned = true;
+		}
+	}
+	if (banned) {
+		EndAllPairPvPFor(client);
+		globalPvP[client] &=~ ENABLEDMASK_EXTERNAL|State_Forced;
+		SetGlobalPvP(client, false);
+		CreateTimer(1.0, BannedFromPvPNotice, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+	}
+}
+public Action BannedFromPvPNotice(Handle timer, int user) {
+	int client = GetClientOfUserId(user);
+	if (!client || !IsClientInGame(client)) return Plugin_Stop;
+	CPrintToChat(client, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[client]-GetTime())/60.0), clientPvPBannedReason[client]);
+	return Plugin_Stop;
 }
 //endregion
 
