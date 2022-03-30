@@ -1472,9 +1472,14 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	int pvpGrant;
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
-	if (!Client_IsValid(source)) //didnt bring your hazardous environment suit?
+	if (!Client_IsValid(source)) { //didnt bring your hazardous environment suit?
 		return Plugin_Continue;
-	else if ((pvpGrant=CanClientsPvP(victim,source))) {
+	} else if (IsMirrored(source)) {
+		if (damagecustom == TF_CUSTOM_BACKSTAB)
+			damage = GetClientHealth(source) * 6.0;
+		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
+		//damage was mirrored
+	} else if ((pvpGrant=CanClientsPvP(victim,source))) {
 		//don't update cooldowns if we're forced into pvp or damage is self-inflicted
 		// for now reset cooldowns on any pvp
 		if (pvpGrant&3 == 0 && pvpGrant&12 != 0) {
@@ -1482,11 +1487,6 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 			if (!IsFakeClient(source)) clientLatestPvPAction[source] = GetClientTime(source);
 		}
 		return Plugin_Continue; //pvp is on, go nuts
-	} else if (IsMirrored(source)) {
-		if (damagecustom == TF_CUSTOM_BACKSTAB)
-			damage = GetClientHealth(source) * 6.0;
-		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
-		//damage was mirrored
 	} else if (allowTauntKilled[victim] && TF2_IsPlayerInCondition(source, TFCond_Taunting))
 		return Plugin_Continue; //allow taunt-kill explicitly
 		
