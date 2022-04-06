@@ -102,7 +102,7 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
-	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> <minutes> [reason] - Ban a player from taking part in pvp");
+	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> [<minutes> [reason]] - Ban a player from taking part in pvp");
 	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_BAN, "Usage: <name|userid> - Unban a player from pvp");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
@@ -397,16 +397,17 @@ bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
 }
 
 public Action Command_BanPvP(int client, int args) {
-	if (args < 1 || args == 2) {
+	if (args < 1) {
 		ReplyToCommand(client, "Usage: sm_banpvp <#user|name> [<minutes> [Reason]]");
+		return Plugin_Handled;
 	}
 	
 	int len, next_len;
-	char Arguments[256];
-	GetCmdArgString(Arguments, sizeof(Arguments));
+	char argstring[256];
+	GetCmdArgString(argstring, sizeof(argstring));
 	
 	char arg[65];
-	len = BreakString(Arguments, arg, sizeof(arg));
+	len = BreakString(argstring, arg, sizeof(arg));
 	
 	int target = FindTarget(client, arg, true);
 	if (target == -1) {
@@ -423,19 +424,21 @@ public Action Command_BanPvP(int client, int args) {
 		return Plugin_Handled;
 	}
 	
-	char s_time[12];
-	if ((next_len = BreakString(Arguments[len], s_time, sizeof(s_time))) != -1) {
+	char stime[12];
+	char reason[128];
+	if ((next_len = BreakString(argstring[len], stime, sizeof(stime))) != -1) {
 		len += next_len;
+		strcopy(reason, sizeof(reason), argstring[len]);
 	} else {
-		len = 0;
-		Arguments[0] = '\0';
+		strcopy(reason, sizeof(reason), "<No Reason>");
 	}
-	int time = StringToInt(s_time);
+	int time = StringToInt(stime);
 	if (time <= 0) {
 		time = 1025280; //2 years
 	}
 	
-	BanClientPvP(client, target, time, Arguments[len]);
+	
+	BanClientPvP(client, target, time, reason);
 
 	return Plugin_Handled;
 }

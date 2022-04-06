@@ -78,7 +78,7 @@ There is a really cool pvp inicator particle system in the `clientmod/` director
 custom particle systems from the server, I can't use it. In case you want to take a look, I added some instructions on
 how to use the particle. Thanks to FancyNight and sigmarune for making that custom particle system :)
 
-**`pvp_spawnkill_protection "15 5 35 100 60"`**
+**`pvp_spawnkill_protection "15 5 35 100 60"`**   
 Set up spawn protection. Set to an empty value to disable.
 Parameters in order are: Minimum Penalty, Protection Time [s], Maximum Penalty, Threashold, Ban Time [m]
 
@@ -89,25 +89,34 @@ Parameters in order are: Minimum Penalty, Protection Time [s], Maximum Penalty, 
 **`/pvp`**   
 Toggle global PvP on or off
 
-**`/pvp player`**
+**`/pvp player`**   
 Invite to, accept and end pair PvP with another player.
 If the player was not found, get a menu.
 
-**`/stoppvp`**
+**`/stoppvp`**   
 End pair PvP with all players.
 If no pair PvP running, toggle ignore state.
 
-**`/forcepvp <target|'map'> <0|1>`**
+**`/forcepvp <target|'map'> <0|1>`**   
 Override the targets global pvp choice. If you use 'map' it will apply to all players joining the server. Non persistent (will reset on map change). Requires admin flag Slay.
 
 **`/mirror <target> <0|1>`**   
 Force mirror damage on someone. Mirror damage only affects players that are not PvPing, and is only for fun.
 
-**`/mirrorme`**
+**`/mirrorme`**   
 Mirror your damage agains non-PvP players.
 
-**`/fakepvprequest <requester> <requestee>`**
+**`/fakepvprequest <requester> <requestee>`**   
 Send a pair PvP request from requester to requestee.
+
+**`/banpvp <#userid|name> <minutes> [reason]`**   
+Ban a player from PvP. Time has to be positive integer. (1440 is a day)
+If you omit minutes and reason, it will tell you whether the player is already banned.
+Note: If you can't type their name, check `status` in console and use the #userid in the first column.
+
+**`/unbanpvp <#userid|name>`**   
+Unban a player from PvP.
+Note: If you can't type their name, check `status` in console and use the #userid in the first column.
 
 **New Target Selectors:**
 - `@pvp` Select all players with global PvP enabled
