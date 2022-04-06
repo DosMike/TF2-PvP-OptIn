@@ -15,6 +15,8 @@ This plugin was written as alternative to /friendly plugins as players usually f
 - Prevent players pushing eachother with e.g. loose cannon outside of pvp
 - Bosses and Skeleton ignore players that are not in PvP (see ConVars)
 - Generates a config at cfg/sourcemod/plugin.pvpoptin.cfg
+- Banning players from PvP
+- Protection agains spawn killing (for maps without locker room)
 
 *Note on Supressing AI Targeting:* Due to how the targeting for sentries and some bosses is implemented,
 supressing a player or entity from being targeted results in the sentry or boss not seeing any enemy and idling or
@@ -75,6 +77,12 @@ Play a particle on players that can be PvPed (`mark_for_death`). Playes for both
 There is a really cool pvp inicator particle system in the `clientmod/` directory, but due to how TF2 is not loading 
 custom particle systems from the server, I can't use it. In case you want to take a look, I added some instructions on
 how to use the particle. Thanks to FancyNight and sigmarune for making that custom particle system :)
+
+**`pvp_spawnkill_protection "15 5 35 100 60"`**
+Set up spawn protection. Set to an empty value to disable.
+Parameters in order are: Minimum Penalty, Protection Time [s], Maximum Penalty, Threashold, Ban Time [m]
+
+![image](./spawnProtectionParams.png)
 
 ### Commands:
 

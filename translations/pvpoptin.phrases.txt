@@ -127,6 +127,10 @@
 		"#format" "{1:i},{2:s}"
 		"en"	"{darkviolet}[PvP]{default} You have been banned from PvP for {1} minutes (Reason: {2})"
 	}
+	"Spawn Killing is not allowed"
+	{
+		"en"	"{darkviolet}[PvP]{default} Stop acting like an absolute asshat"
+	}
 	"Entered global pvp too recently"
 	{
 		"#format" "{1:d}"
