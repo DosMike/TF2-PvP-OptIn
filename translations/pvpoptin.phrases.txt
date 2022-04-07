@@ -129,7 +129,7 @@
 	}
 	"Spawn Killing is not allowed"
 	{
-		"en"	"{darkviolet}[PvP]{default} Stop acting like an absolute asshat"
+		"en"	"{darkviolet}[PvP]{default} Spawn-camping is not allowed, stop it!"
 	}
 	"Entered global pvp too recently"
 	{
