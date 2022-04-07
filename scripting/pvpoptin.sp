@@ -103,7 +103,7 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
 	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> [<minutes> [reason]] - Ban a player from taking part in pvp");
-	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_BAN, "Usage: <name|userid> - Unban a player from pvp");
+	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_UNBAN, "Usage: <name|userid> - Unban a player from pvp");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
