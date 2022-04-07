@@ -1117,13 +1117,12 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 	//tracking spawnkilling here, so only react to human attackers and when the victim died
 	if (!isActive)
 		return;
-	if (!Client_IsIngame(attacker) || IsFakeClient(attacker)) {
+	if (!Client_IsIngame(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0) {
 		return;
 	}
-	if (GetClientHealth(victim)>0) {
-		return;
+	if (!IsFakeClient(victim)) { //again, bots don't leave pvp
+		clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
 	}
-	clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
 	
 	if (spawnKill_maxTime > 0.01 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot >= 0.0 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
 		float timeAlive = GetGameTime() - clientSpawnTime[victim];
