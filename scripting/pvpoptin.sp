@@ -11,7 +11,7 @@
 #include <nativevotes>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w14b"
+#define PLUGIN_VERSION "22w14a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -1123,13 +1123,16 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 	if (GetClientHealth(victim)>0) {
 		return;
 	}
+	clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
 	
-	if (spawnKill_maxTime > 0.001 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot > 0.001 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
+	if (spawnKill_maxTime > 0.01 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot >= 0.0 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
 		float timeAlive = GetGameTime() - clientSpawnTime[victim];
 		if (timeAlive > spawnKill_maxTime) return; //idk, just bad?
-		int score = spawnKill_minIncrease + RoundToNearest(Pow((1.0-(timeAlive/spawnKill_maxTime))*spawnKill_maxIncreaseRoot,2.0)); //quadratic fall off
+		int score = spawnKill_minIncrease;
+		if (spawnKill_maxIncreaseRoot > 0.0001)
+			score += RoundToNearest(Pow((1.0-(timeAlive/spawnKill_maxTime))*spawnKill_maxIncreaseRoot,2.0)); //quadratic fall off
 		clientSpawnKillScore[attacker] += score;
-	//	PrintToServer("%N killed %N after %.2fs (+%i score)", attacker, victim, timeAlive, score);
+		
 		if (clientSpawnKillScore[attacker] >= spawnKill_threashold) { //5 near instant kills
 			BanClientPvP(0, attacker, spawnKill_banTime, "Spawn Killing [Automatic]");
 		} else if (score > 0) {

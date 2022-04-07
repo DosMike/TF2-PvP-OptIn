@@ -263,7 +263,7 @@ public void OnCVarChanged_SpawnKillProperties(ConVar convar, const char[] oldVal
 		convar.SetString("15 5 35 100 60");
 		return;
 	} else off += len;
-	if ((len=BreakString(newValue[off], arg, sizeof(arg))) < 1 || StringToIntEx(arg,score)!=strlen(arg) || score <= mscore) {
+	if ((len=BreakString(newValue[off], arg, sizeof(arg))) < 1 || StringToIntEx(arg,score)!=strlen(arg) || score < mscore) {
 		convar.SetString("15 5 35 100 60");
 		return;
 	} else off += len;
@@ -279,7 +279,8 @@ public void OnCVarChanged_SpawnKillProperties(ConVar convar, const char[] oldVal
 	
 	spawnKill_maxTime = float(ptime); //protection time
 	spawnKill_minIncrease = mscore; //score increase at insta-kill
-	spawnKill_maxIncreaseRoot = SquareRoot(float(score-mscore)); //score increase at insta-kill
+	if (score > mscore) spawnKill_maxIncreaseRoot = SquareRoot(float(score-mscore)); //score increase at insta-kill
+	else spawnKill_maxIncreaseRoot = 0.0; //using a flat increase
 	spawnKill_threashold = limit; //maximum score before banning
 	spawnKill_banTime = btime; //time to ban for
 }
