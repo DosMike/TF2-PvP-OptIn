@@ -254,4 +254,8 @@
 		"#format" "{1:s}"
 		"en"	"{darkviolet}[PvP]{default} You've reset {1}'s mirror damage"
 	}
+	"Healing only allowed in global PvP"
+	{
+		"en"	"{darkviolet}[PvP]{default} Healing players is only allowed if both are in {goldenrod}Global PvP{default}!"
+	}
 }

@@ -70,6 +70,8 @@ char clientPvPBannedReason[MAXPLAYERS+1][90]; //client prefs values are a varcha
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
 float clientSpawnTime[MAXPLAYERS+1]; //game time the client last spawned (to allow bots)
 int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slowly decay over time, count up base on client alive time
+bool clientInvalidHealNotif[MAXPLAYERS+1];
+float clientInvalidHealNotifLast[MAXPLAYERS+1];
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
@@ -182,7 +184,7 @@ public void OnMapStart() {
 //	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
 	PrecacheParticleSystem(PVP_PARTICLE);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
-	CreateTimer(1.0, Timer_SpawnKillScoreDecay, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
+	CreateTimer(1.0, Timer_EverySecond, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
 public void TF2_OnWaitingForPlayersStart() {
 	UpdateActiveState(GameState_Waiting);
@@ -260,6 +262,8 @@ public void OnClientConnected(int client) {
 	clientForceUpdateParticle[client] = false;
 	clientSpawnTime[client] = 0.0;
 	clientSpawnKillScore[client] = 0;
+	clientInvalidHealNotif[client] = false;
+	clientInvalidHealNotifLast[client] = 0.0;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
 	}

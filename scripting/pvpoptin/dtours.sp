@@ -24,13 +24,15 @@ static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
 static bool detoured_CObjectSentrygun_ValidTargetPlayer;
 static DHookSetup hdl_CObjectSentrygun_FoundTarget;
 static bool detoured_CObjectSentrygun_FoundTarget;
+static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
+static bool detoured_CWeaponMedigun_AllowedToHealTarget;
 
 void Plugin_SetupDHooks() {
-	//to find this signature you can go up Spawn function through powerups to bonuspacks.
-	//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
-	//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
 	GameData pvpfundata = new GameData("pvpoptin.games");
 	if (pvpfundata != INVALID_HANDLE) {
+		//to find this signature you can go up Spawn function through powerups to bonuspacks.
+		//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
+		//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
 		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot_IsEnemy");
 		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
 		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
@@ -39,6 +41,8 @@ void Plugin_SetupDHooks() {
 		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
 		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
 		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
+		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
+		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun_AllowedToHealTarget");
 		delete pvpfundata;
 	}
 }
@@ -84,6 +88,11 @@ void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CObjectSentrygun::FoundTarget(CTFPlayer*,Vector*,bool). Turrets will always track zombies and bosses!");
 	}
+	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && !detoured_CWeaponMedigun_AllowedToHealTarget) {
+		detoured_CWeaponMedigun_AllowedToHealTarget = DHookEnableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
+	} else {
+		PrintToServer("Could not hook CWeaponMedigun::AllowedToHealTarget(CBaseEntity*). Medic can grief PvP duels!");
+	}
 }
 void DHooksDetach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
@@ -102,6 +111,8 @@ void DHooksDetach() {
 		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
 	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FoundTarget)
 		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
+	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && detoured_CWeaponMedigun_AllowedToHealTarget)
+		detoured_CWeaponMedigun_AllowedToHealTarget ^= DHookDisableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
 }
 
 // this dhook simply makes bots ignore players that dont want to pvp
@@ -207,6 +218,22 @@ public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam h
 		blocked = Client_IsValid(otherEngi) && !CanClientsPvP(engi,otherEngi);
 	}
 	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
+}
+
+public MRESReturn Detour_CWeaponMedigun_AllowedToHealTarget(int weapon, DHookReturn hReturn, DHookParam hParams) {
+	int target = hParams.Get(1);
+	if (!(1<=target<=MaxClients))
+		return MRES_Ignored;
+	int medic = GetEntPropEnt(weapon, Prop_Send, "m_hOwner");
+	if (!(1<=medic<=MaxClients))
+		return MRES_Ignored; //no owner?!
+	
+	if (IsGlobalPvP(medic) && IsGlobalPvP(target))
+		return MRES_Ignored; //healing is allowed in global pvp
+	
+	clientInvalidHealNotif[medic] = true;
+	hReturn.Value = false;
+	return MRES_Supercede;
 }
 
 //keep as simple and quick as possible

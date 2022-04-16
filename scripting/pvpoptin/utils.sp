@@ -24,11 +24,18 @@ void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
 		}
 	}
 }
-// accidents happen, slowly decay score
-public Action Timer_SpawnKillScoreDecay(Handle timer) {
+public Action Timer_EverySecond(Handle timer) {
 	for (int client=1;client<=MaxClients;client++) {
+		// accidents happen, slowly decay score
 		if (clientSpawnKillScore[client] > 0)
 			clientSpawnKillScore[client] -= 1;
+		if (clientInvalidHealNotif[client]) {
+			clientInvalidHealNotif[client] = false;
+			if (Client_IsIngame(client) && !IsFakeClient(client) && GetClientTime(client) - clientInvalidHealNotifLast[client] > 5.0) {
+				clientInvalidHealNotifLast[client] = GetClientTime(client);
+				CPrintToChat(client, "%t", "Healing only allowed in global PvP");
+			}
+		}
 	}
 	
 	return Plugin_Continue;
