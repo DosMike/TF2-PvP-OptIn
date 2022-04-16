@@ -9,9 +9,10 @@
 #include <tf2utils>
 #undef REQUIRE_PLUGIN
 #include <nativevotes>
+#tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w14a"
+#define PLUGIN_VERSION "22w15a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -44,7 +45,11 @@ public Plugin myinfo = {
 
 #include "pvpoptin/common.sp"
 
-bool depNativeVotes; //is NativeVotes loaded?
+//is NativeVotes loaded?
+bool depNativeVotes;
+//is the "Mirror Damage" plugin by Forth loaded? map that's value to our external flag and shortcut the command
+// version i have is from here: https://github.com/Deiz/sm-plugins; feel free to PR/issue other mirror plugins with API
+bool depMirrorDamage;
 
 bool isActive; //plugin active flag changed depending on game state
 eGameState currentGameState;
@@ -74,7 +79,6 @@ int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slow
 #define COOKIE_BANDATA "pvpBanned"
 
 #define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && !(globalPvP[%1]&State_ExternalOff))
-#define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && !(mirrorDamage[%1]&State_ExternalOff))
 
 #include "pvpoptin/utils.sp"
 #include "pvpoptin/config.sp"
@@ -143,8 +147,10 @@ public void OnPluginStart() {
 	}
 	if (hotload) RequestFrame(HotloadGameState);
 }
+
 public void OnAllPluginsLoaded() {
 	depNativeVotes = LibraryExists("nativevotes");
+	depMirrorDamage = LibraryExists("mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE;
 }
 
 public void OnPluginEnd() {
@@ -158,10 +164,12 @@ public void OnPluginEnd() {
 
 public void OnLibraryAdded(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = true;
+	if (StrEqual(name, "mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE) depMirrorDamage = true;
 }
 
 public void OnLibraryRemoved(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = false;
+	if (StrEqual(name, "mirrordamage")) depMirrorDamage = false;
 }
 
 public void OnMapEnd() {
@@ -331,6 +339,17 @@ static void ShowCookieSettingsMenu(int client) {
 		Format(buffer, sizeof(buffer), "[  ] %T", "SettingsMenuIgnorePair", client);
 		menu.AddItem("ignorepvp", buffer);
 	}
+#if defined _mirrordamage_included
+	if (depMirrorDamage) {
+		if (MirrorDamage_Status(client, MirrorDealt)) {
+			Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuMirrorDamage", client);
+			menu.AddItem("mirror", buffer, ITEMDRAW_DISABLED);
+		} else {
+			Format(buffer, sizeof(buffer), "[  ] %T", "SettingsMenuMirrorDamage", client);
+			menu.AddItem("mirror", buffer, ITEMDRAW_DISABLED);
+		}
+	} else //...
+#endif
 	if (mirrorDamage[client] & State_Enabled) {
 		Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuMirrorDamage", client);
 		menu.AddItem("mirror", buffer);
@@ -614,6 +633,9 @@ public Action Command_ForcePvP(int client, int args) {
 }
 
 public Action Command_Mirror(int client, int args) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) return Plugin_Continue; //not our command anymore
+#endif
 	if (GetCmdArgs()!=2) {
 		char name[16];
 		GetCmdArg(0, name, sizeof(name));
@@ -652,6 +674,9 @@ public Action Command_Mirror(int client, int args) {
 }
 
 public Action Command_MirrorMe(int client, int args) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) return Plugin_Continue; //not our command anymore
+#endif
 	SetMirroredState(client, !(mirrorDamage[client]&State_Enabled));
 	return Plugin_Handled;
 }
@@ -916,6 +941,14 @@ static bool HasAnyPairPvP(int client) {
 	}
 	return false;
 }
+bool IsMirrored(int client) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) {
+		return MirrorDamage_Status(client, MirrorDealt);
+	}
+#endif
+	return (mirrorDamage[client]!=State_Disabled && !(mirrorDamage[client]&State_ExternalOff));
+}
 static void SetMirroredState(int client, bool mirrored) {
 	Handle cookie;
 	if (mirrored) mirrorDamage[client] |= State_Enabled;
@@ -1091,6 +1124,10 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	int source = GetPlayerDamageSource(attacker, inflictor);
 	if (!Client_IsValid(source)) { //didnt bring your hazardous environment suit?
 		return Plugin_Continue;
+#if defined _mirrordamage_included
+	} else if (depMirrorDamage && (MirrorDamage_Status(victim, MirrorTaken) || MirrorDamage_Status(source, MirrorDealt))) {
+		return Plugin_Continue; //mirror plugin will handle
+#endif
 	} else if (IsMirrored(source)) {
 		if (damagecustom == TF_CUSTOM_BACKSTAB)
 			damage = GetClientHealth(source) * 6.0;
