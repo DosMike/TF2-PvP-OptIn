@@ -108,6 +108,15 @@
 		"#format" "{1:d}"
 		"chi"	"{darkviolet}[PvP]{default} 请等待 {1} 秒后再发送更多的 {azure}对决PvP{default} 请求。"
 	}
+	"You have been banned from pvp"
+	{
+		"#format" "{1:i},{2:s}"
+		"chi"	"{darkviolet}[PvP]{default} 你已被PvP封禁，时间为 {1} 分钟（原因：{2}）"
+	}
+	"Spawn Killing is not allowed"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 堵出生点是不允许的，别做了！"
+	}
 	"Entered global pvp too recently"
 	{
 		"#format" "{1:d}"
@@ -223,4 +232,9 @@
 		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的镜像伤害"
 	}
+	"Healing only allowed in global PvP"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 只有当你们都是 {goldenrod}全局PvP{default} 状态下才可以治疗玩家！"
+	}
+
 }
