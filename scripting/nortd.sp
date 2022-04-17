@@ -4,7 +4,7 @@
 
 public Action RTD2_CanRollDice(int client)
 {
-	if(pvp_GetPlayerGlobal(client))
+	if(!pvp_GetPlayerGlobal(client))
 	{
 		PrintToChat(client, "关闭PvP不可使用RTD");
 		return Plugin_Handled;

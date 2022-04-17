@@ -38,10 +38,12 @@
 	}
 	"Someone disengaged pair pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 脱离了与你的PvP"
 	}
 	"You disengaged pair pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你已经脱离了与 {1} 的PvP"
 	}
 	"You disengaged all pair pvp"
@@ -50,6 +52,7 @@
 	}
 	"You engaged pair pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你和 {1} 加入了对决PvP。"
 	}
 	"You are both global pvp"
@@ -58,42 +61,56 @@
 	}
 	"Already requested pvp with"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你已经发送过了PvP请求给 {1}"
+	}
+	"There is a pending request with menus"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 这个玩家已有正在处理的PvP请求"
 	}
 	"Someone cancelled pvp request for another"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 取消了请求去邀请别人"
 	}
 	"You cancelled pvp request"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你取消了你之前与 {1} 的请求"
 	}
 	"Someone requested pvp, confirm"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 想要和你PvP，使用 {darkgray}/pvp {2}{default} 来进行确认"
 	}
 	"You requested pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你发送了PvP请求给 {1} 。"
 	}
 	"Your pvp request was declined"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你与 {1} 的 {azure}对决PvP{default} 请求被拒绝。"
 	}
 	"You declined multiple pvp requests"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你已拒绝与 {1} 的 {azure}对决PvP{default} 的请求。"
 	}
 	"You declined single pvp request"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你已拒绝 {1} 的{azure}对决PvP{default} 的请求。"
 	}
 	"Last pair pvp request too recent"
 	{
-		"en"	"{darkviolet}[PvP]{default} 请等待 {1} 秒后再发送更多的 {azure}对决PvP{default} 请求。"
+		"#format" "{1:d}"
+		"chi"	"{darkviolet}[PvP]{default} 请等待 {1} 秒后再发送更多的 {azure}对决PvP{default} 请求。"
 	}
 	"Entered global pvp too recently"
 	{
+		"#format" "{1:d}"
 		"chi"	"{darkviolet}[PvP]{default} 你必须等待 {1} 秒后才能离开 {goldenrod}全局PvP{default}。"
 	}
 	"Global pvp state on line1"
@@ -150,6 +167,7 @@
 	}
 	"Someone forced map pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 强制设定 {goldenrod}全局PvP{default} 于此地图"
 	}
 	"You forced map pvp"
@@ -158,6 +176,7 @@
 	}
 	"Someone reset map pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 重置 {goldenrod}全局PvP{default} 回个人设定"
 	}
 	"You reset map pvp"
@@ -166,34 +185,42 @@
 	}
 	"Someone forced your global pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 强制你进入 {goldenrod}全局PvP{default}"
 	}
 	"You forced someones global pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你强制 {1} 进入 {goldenrod}全局PvP{default}"
 	}
 	"Someone reset your global pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 重置了你的 {goldenrod}全局PvP{default} 回到个人设定"
 	}
 	"You reset someones global pvp"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的 {goldenrod}全局PvP{default}"
 	}
 	"Someone forced your mirror damage"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 强制你镜像伤害"
 	}
 	"You forced someones mirror damage"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你强制 {1} 开启镜像伤害"
 	}
 	"Someone reset your mirror damage"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} {1} 重置了你的镜像伤害回到个人设定"
 	}
 	"You reset someones mirror damage"
 	{
+		"#format" "{1:N}"
 		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的镜像伤害"
 	}
 }
