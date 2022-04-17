@@ -67,6 +67,14 @@
 				// LKASM : 55 8B EC 83 EC 40 56 8B F1 57 8B 7D 08
 				// MASK  : FF FF FF FF FF FF FF FF FF FF FF F8 00
 			}
+			"CWeaponMedigun_AllowedToHealTarget"
+			{
+				"library" "server"
+				"linux" "@_ZN14CWeaponMedigun19AllowedToHealTargetEP11CBaseEntity"
+				"windows" "\x55\x8B\xEC\x53\x8B\xD9\x56\x57\x8B\xB3\xE8\x01\x00\x00\x83\xFE\xFF\x0F\x84****\xA1****\x8B\xD6\x81\xE2\xFF\x0F\x00\x00\xC1\xE2\x04\x8D\x78\x04\x03\xFA\x0F\x84****\xC1\xEE\x0C\x39\x77\x04\x0F\x85****\x8B\x3F\x85\xFF\x0F\x84****\x8B\x07\x8B\xCF\x8B\x80\x40\x01\x00\x00\xFF\xD0\x84\xC0\x0F\x84****\x8B\x75\x08\x85\xF6\x0F\x84****\x8B\x06\x8B\xCE\x8B\x80\x40\x01\x00\x00"
+				//LKASM : 55 8B EC 53 8B D9 56 57 8B B3 E8 01 00 00 83 FE FF 0F 84 64 01 00 00 A1 A0 A7 8F 10 8B D6 81 E2 FF 0F 00 00 C1 E2 04 8D 78 04 03 FA 0F 84 49 01 00 00 C1 EE 0C 39 77 04 0F 85 3D 01 00 00 8B 3F 85 FF 0F 84 33 01 00 00 8B 07 8B CF 8B 80 40 01 00 00 FF D0 84 C0 0F 84 1F 01 00 00 8B 75 08 85 F6 0F 84 14 01 00 00 8B 06 8B CE 8B 80 40 01 00 00
+				//MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF 
+			}
 		}
 		"Functions"
 		{
@@ -207,6 +215,20 @@
 					"bool"
 					{
 						"type" "bool"
+					}
+				}
+			}
+			"CWeaponMedigun_AllowedToHealTarget"
+			{
+				"signature" "CWeaponMedigun_AllowedToHealTarget"
+				"callconv" "thiscall"
+				"return" "bool"
+				"this" "entity"
+				"arguments"
+				{
+					"target"
+					{
+						"type" "cbaseentity"
 					}
 				}
 			}

@@ -52,6 +52,16 @@ native void pvp_SetPlayerGlobal(int client, int value=-1);
 native bool pvp_GetPlayerPair(int client1, int client2);
 
 /**
+ * Get all players that are currenlty in pair pvp with this player
+ * 
+ * @param client - the client to check
+ * @param targets - buffer for targets to be written
+ * @param max_targets - size of targets buffer
+ * @return number of elements written in target buffer
+ */
+native int pvp_GetPlayersPaired(int client, int[] targets, int max_targets);
+
+/**
  * Can be used to bypass the pair pvp invite system and
  * set the players pvp state
  *
@@ -95,6 +105,27 @@ native bool pvp_IsMirrored(int client, pvpEnabledState& pvpState = PVPState_Disa
 native void pvp_SetMirrored(int client, int value=-1);
 
 /**
+ * Ban a player from participating in PvP. The player needs to be ingame.
+ *
+ * @param admin admin that bans the target or 0 for server
+ * @param target client to ban
+ * @param time time in minutes to ban from pvp
+ * @param reason for banning
+ * @error if admin invalid, target invalid or fake, time <= 0
+ */
+native void pvp_BanPlayer(int admin, int target, int time, const char[] reason);
+
+/**
+ * Unban a player, and allow them to PvP again.
+ * If the player wasn't banned, nothing happens.
+ *
+ * @param admin the admin that unbanned
+ * @param target client to unban
+ * @error if admin invalid, target invalid
+ */
+native void pvp_UnbanPlayer(int admin, int target);
+
+/**
  * Called when a players global pvp state changes.
  * You can only modify the PVPState_External* bits in newState!
  *
@@ -126,6 +157,26 @@ forward Action pvp_OnPairInvite(int requester, int requestee);
  */
 forward Action pvp_OnPairChanged(int client1, int client2, bool value);
 
+/**
+ * Called when player gets banned from pvp.
+ *
+ * @param admin admin issueing the ban or 0 for console
+ * @param target client being banned
+ * @param minutes time in minutes this ban lasts
+ * @param reason reason message
+ * @noreturn
+ */
+forward Action pvp_OnBanAdded(int admin, int target, int minutes, const char[] reason);
+
+/**
+ * Called when a player ban is manually undone (not when the ban times out)
+ *
+ * @param admin the admin that unbanned
+ * @param target client to unban
+ * @noreturn
+ */
+forward Action pvp_OnBanRemoved(int admin, int target);
+
 
 public SharedPlugin __pl_pvpoptin =  {
     name = "pvpoptin",
@@ -143,9 +194,12 @@ public void __pl_pvpoptin_SetNTVOptional() {
     MarkNativeAsOptional("pvp_GetPlayerGlobal");
     MarkNativeAsOptional("pvp_SetPlayerGlobal");
     MarkNativeAsOptional("pvp_GetPlayerPair");
+    MarkNativeAsOptional("pvp_GetPlayersPaired");
     MarkNativeAsOptional("pvp_ForcePlayerPair");
     MarkNativeAsOptional("pvp_CanAttack");
     MarkNativeAsOptional("pvp_IsMirrored");
     MarkNativeAsOptional("pvp_SetMirrored");
+    MarkNativeAsOptional("pvp_BanPlayer");
+    MarkNativeAsOptional("pvp_UnbanPlayer");
 }
 #endif
