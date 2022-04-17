@@ -52,6 +52,16 @@ native void pvp_SetPlayerGlobal(int client, int value=-1);
 native bool pvp_GetPlayerPair(int client1, int client2);
 
 /**
+ * Get all players that are currenlty in pair pvp with this player
+ * 
+ * @param client - the client to check
+ * @param targets - buffer for targets to be written
+ * @param max_targets - size of targets buffer
+ * @return number of elements written in target buffer
+ */
+native int pvp_GetPlayersPaired(int client, int[] targets, int max_targets);
+
+/**
  * Can be used to bypass the pair pvp invite system and
  * set the players pvp state
  *
@@ -184,6 +194,7 @@ public void __pl_pvpoptin_SetNTVOptional() {
     MarkNativeAsOptional("pvp_GetPlayerGlobal");
     MarkNativeAsOptional("pvp_SetPlayerGlobal");
     MarkNativeAsOptional("pvp_GetPlayerPair");
+    MarkNativeAsOptional("pvp_GetPlayersPaired");
     MarkNativeAsOptional("pvp_ForcePlayerPair");
     MarkNativeAsOptional("pvp_CanAttack");
     MarkNativeAsOptional("pvp_IsMirrored");

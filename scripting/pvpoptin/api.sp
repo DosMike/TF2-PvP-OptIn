@@ -27,6 +27,7 @@ public APLRes AskPluginLoad2(Handle plugin, bool late, char[] error, int err_max
     CreateNative("pvp_GetPlayerGlobal", Native_GetPlayerGlobal);
     CreateNative("pvp_SetPlayerGlobal", Native_SetPlayerGlobal);
     CreateNative("pvp_GetPlayerPair",   Native_GetPlayerPair);
+    CreateNative("pvp_GetPlayersPaired",Native_GetPlayersPaired);
     CreateNative("pvp_ForcePlayerPair", Native_ForcePlayerPair);
     CreateNative("pvp_CanAttack",       Native_CanAttack);
     CreateNative("pvp_IsMirrored",      Native_IsMirrored);
@@ -72,9 +73,26 @@ public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
 public any Native_GetPlayerPair(Handle plugin, int numParams) {
 	int client1 = GetNativeCell(1);
 	int client2 = GetNativeCell(2);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client1);
+	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg2 (%i)", client2);
 	return pairPvP[client1][client2];
+}
+//native int pvp_GetPlayersPaired(int client, int[] targets, int max_targets);
+public any Native_GetPlayersPaired(Handle plugin, int numParams) {
+	int client = GetNativeCell(1);
+	int max = GetNativeCell(3);
+	int[] hits = new int[max];
+	int results;
+	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client);
+	for (int other=1; other<=MaxClients; other+=1) {
+		if (pairPvP[client][other]) {
+			hits[results] = other;
+			results += 1;
+			if (results == max) break;
+		}
+	}
+	if (results) SetNativeArray(2, hits, max);
+	return results;
 }
 //native void pvp_ForcePlayerPair(int client1, int client2, bool value);
 public any Native_ForcePlayerPair(Handle plugin, int numParams) {
