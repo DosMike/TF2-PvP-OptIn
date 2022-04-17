@@ -12,8 +12,6 @@
 #include "common.sp"
 #endif
 
-//region other trash
-
 void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
 	for (int entity=1; entity<2048; entity++) {
 		if (IsValidEntity(entity) && (entity == client || (HasEntProp(entity, Prop_Send, "m_hOwnerEntity") && GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity")==client)) ) {
@@ -26,11 +24,18 @@ void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
 		}
 	}
 }
-// accidents happen, slowly decay score
-public Action Timer_SpawnKillScoreDecay(Handle timer) {
+public Action Timer_EverySecond(Handle timer) {
 	for (int client=1;client<=MaxClients;client++) {
+		// accidents happen, slowly decay score
 		if (clientSpawnKillScore[client] > 0)
 			clientSpawnKillScore[client] -= 1;
+		if (clientInvalidHealNotif[client]) {
+			clientInvalidHealNotif[client] = false;
+			if (Client_IsIngame(client) && !IsFakeClient(client) && GetClientTime(client) - clientInvalidHealNotifLast[client] > 5.0) {
+				clientInvalidHealNotifLast[client] = GetClientTime(client);
+				CPrintToChat(client, "%t", "Healing only allowed in global PvP");
+			}
+		}
 	}
 	
 	return Plugin_Continue;
@@ -197,5 +202,24 @@ int GetPlayerDamageSource(int attacker, int inflictor) {
 		return INVALID_ENT_REFERENCE;
 }
 
-//endregion
-
+/** Why the heck is this not a stock? filenames dont tell me anything and can
+ * easily be changed. Anyways: this finds a plugin by name exactly.
+ * @param pluginName the name to look for case sensitive
+ * @param pluginAuthor, if not NULL_STRING, has to match as well
+ * @return plugin handle or INVALID_HANDLE if not found
+ */
+Handle FindPluginByName(const char[] pluginName, const char[] pluginAuthor=NULL_STRING) {
+	Handle plugins = GetPluginIterator();
+	Handle result = INVALID_HANDLE;
+	char buffer[128];
+	while (MorePlugins(plugins)) {
+		Handle plugin = ReadPlugin(plugins);
+		if (GetPluginInfo(plugin, PlInfo_Name, buffer, sizeof(buffer)) && StrEqual(pluginName, buffer) &&
+			(IsNullString(pluginAuthor) || (GetPluginInfo(plugin, PlInfo_Author, buffer, sizeof(buffer)) && StrEqual(pluginAuthor, buffer)))) {
+			result = plugin;
+			break;
+		}
+	}
+	delete plugins;
+	return result;
+}
