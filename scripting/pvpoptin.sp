@@ -9,9 +9,10 @@
 #include <tf2utils>
 #undef REQUIRE_PLUGIN
 #include <nativevotes>
+#tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w11a"
+#define PLUGIN_VERSION "22w15a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -42,199 +43,62 @@ public Plugin myinfo = {
 
 // ----------      other stuff below - better don''t touch ;)      ----------
 
-// will be double checked with TF2Util_GetPlayerConditionProvider
-static TFCond pvpConditions[] = {
-	TFCond_Slowed,
-	TFCond_Bonked,
-	TFCond_Dazed,
-	TFCond_OnFire,
-	TFCond_Jarated,
-	TFCond_Bleeding,
-	TFCond_Milked,
-	TFCond_MarkedForDeath,
-	TFCond_RestrictToMelee,
-	TFCond_MarkedForDeathSilent,
-	TFCond_Sapped,
-	TFCond_MeleeOnly,
-	TFCond_FreezeInput,
-	TFCond_KnockedIntoAir,
-	TFCond_Gas,
-	TFCond_BurningPyro,
-	TFCond_LostFooting,
-	TFCond_AirCurrent
-};
-static bool pvpConditionTrivial[] = { //true for conditions in pvpConditions that do not affect gameplay too much
-	false,
-	false,
-	false,
-	false,
-	true,
-	false,
-	true,
-	true,
-	false,
-	true,
-	true,
-	false,
-	false,
-	false,
-	true,
-	false,
-	false,
-	false
-};
+#include "pvpoptin/common.sp"
 
-enum eGameState(<<=1) {
-	GameState_Never=0,
-	GameState_Waiting=1,
-	GameState_PreGame,
-	GameState_Running,
-	GameState_Overtime,
-	GameState_SuddenDeath,
-	GameState_GameOver
-}
+//is NativeVotes loaded?
+bool depNativeVotes;
+//is the "Mirror Damage" plugin by Forth loaded? map that's value to our external flag and shortcut the command
+// version i have is from here: https://github.com/Deiz/sm-plugins; feel free to PR/issue other mirror plugins with API
+bool depMirrorDamage;
 
-enum eEnabledState(<<=1) {
-	State_Disabled = 0,
-	State_Enabled = 1,
-	State_Forced,
-	State_ExternalOn, //a plugin placed an override
-	State_ExternalOff, //a plugin placed an override
-	State_BotAlways, //force-enabled in a way that can't turn off because bots
-}
-#define ENABLEDMASK_EXTERNAL  (State_ExternalOn|State_ExternalOff)
-
-enum ePlayerVsAiFlags {
-	PvA_Zombies_Ignored = 0, //players cant hurt zombies, zombies ignore players
-	PvA_Zombies_Never = 0x01, //player/buildings are no target, but players can hurt zombies
-	PvA_Zombies_GlobalPvP = 0x02, //Zombies will track down players in global pvp
-	PvA_Zombies_Always = 0x03, //this counts as PvE and thus zombies vs players is always on
-	PvA_Bosses_Ignored = 0, //bosses ignore humans, players can't hurt bosses
-	PvA_Bosses_Never = 0x10, //player/buildings are no target, but players can hurt bosses
-	PvA_Bosses_GlobalPvP = 0x20, //bosses will track down players in global pvp
-	PvA_Bosses_Always = 0x30, //this counts as PvE and this bosses vs players is always on
-	PvA_ZOMBIES = 0x0f,
-	PvA_BOSSES = 0xf0,
-}
-enum ParticleAttachment_t { // particle_parse.h
-	PATTACH_INVALID = -1,			// Not in original, indicates invalid initial value
-	PATTACH_ABSORIGIN = 0,			// Create at absorigin, but don't follow
-	PATTACH_ABSORIGIN_FOLLOW,		// Create at absorigin, and update to follow the entity
-	PATTACH_CUSTOMORIGIN,			// Create at a custom origin, but don't follow
-	PATTACH_POINT,					// Create on attachment point, but don't follow
-	PATTACH_POINT_FOLLOW,			// Create on attachment point, and update to follow the entity
-	PATTACH_WORLDORIGIN,			// Used for control points that don't attach to an entity
-	PATTACH_ROOTBONE_FOLLOW,		// Create at the root bone of the entity, and update to follow
-};
-
-static bool depNativeVotes; //is NativeVotes loaded?
-
-static bool isActive; //plugin active flag changed depending on game state
-static eGameState currentGameState;
-static eEnabledState globalPvP[MAXPLAYERS+1]; //have turned global pvp on
-static eEnabledState mirrorDamage[MAXPLAYERS+1]; //will never mirror if CanClientsPvP returns true
-static bool allowTauntKilled[MAXPLAYERS+1];
-static bool allowLimitedConditions[MAXPLAYERS+1]; //stuff like jarated, etc is ok for this player
-static bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1]; //double reffed so order doesn't matter for quicker lookups
-static int pairPvPrequest[MAXPLAYERS+1]; //invite requests
-static bool pairPvPignored[MAXPLAYERS+1]; //invites disabled
-static bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill first actual spawn
-static float clientLatestPvPAction[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time. (entering, attacking, getting attacked)
-static float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
-static int clientParticleAttached[MAXPLAYERS+1]; //simple tracking for players that should currently be playing the pvp particle
+bool isActive; //plugin active flag changed depending on game state
+eGameState currentGameState;
+eEnabledState globalPvP[MAXPLAYERS+1]; //have turned global pvp on
+eEnabledState mirrorDamage[MAXPLAYERS+1]; //will never mirror if CanClientsPvP returns true
+bool allowTauntKilled[MAXPLAYERS+1];
+bool allowLimitedConditions[MAXPLAYERS+1]; //stuff like jarated, etc is ok for this player
+bool pairPvP[MAXPLAYERS+1][MAXPLAYERS+1]; //double reffed so order doesn't matter for quicker lookups
+int pairPvPrequest[MAXPLAYERS+1]; //invite requests
+bool pairPvPignored[MAXPLAYERS+1]; //invites disabled
+bool clientFirstSpawn[MAXPLAYERS+1]; //delay reminder message untill first actual spawn
+float clientLatestPvPAction[MAXPLAYERS+1]; //prevent "dodgeing" damage with pvp toggles by blocking leaving pvp for some time. (entering, attacking, getting attacked)
+float clientLatestPvPRequest[MAXPLAYERS+1]; //prevent spamming people with too many pair pvp requests by blocking requests for some time
+int clientParticleAttached[MAXPLAYERS+1]; //simple tracking for players that should currently be playing the pvp particle
+bool clientForceUpdateParticle[MAXPLAYERS+1];
+int clientPvPBannedUntil[MAXPLAYERS+1]; //int max value requires 10 chars
+char clientPvPBannedReason[MAXPLAYERS+1][90]; //client prefs values are a varchar(100)
 //maybe have client settings overwrite zombie/boss behaviour (force attack me)
-
-static DHookSetup hdl_INextBot_IsEnemy;
-static bool detoured_INextBot_IsEnemy;
-static DHookSetup hdl_CZombieAttack_IsPotentiallyChaseable;
-static bool detoured_CZombieAttack_IsPotentiallyChaseable;
-static DHookSetup hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable;
-static bool detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable;
-static DHookSetup hdl_CMerasmusAttack_IsPotentiallyChaseable;
-static bool detoured_CMerasmusAttack_IsPotentiallyChaseable;
-static DHookSetup hdl_CEyeballBoss_FindClosestVisibleVictim;
-static bool detoured_CEyeballBoss_FindClosestVisibleVictim;
-static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
-static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
-static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
-static bool detoured_CObjectSentrygun_ValidTargetPlayer;
-static DHookSetup hdl_CObjectSentrygun_FoundTarget;
-static bool detoured_CObjectSentrygun_FoundTarget;
-
-static ConVar cvar_Version;
-static ConVar cvar_JoinForceState;
-static int joinForceState;
-static ConVar cvar_NoCollide;
-static int noCollideState;
-static ConVar cvar_ActiveStates;
-static eGameState activeGameStates;
-static ConVar cvar_PairPvPRequestMenu;
-static int pairPvPRequestMenu;
-static ConVar cvar_UsePlayerColors;
-static bool usePlayerStateColors;
-static ConVar cvar_ColorGlobalOnRed;
-static ConVar cvar_ColorGlobalOnBlu;
-static ConVar cvar_ColorGlobalOffRed;
-static ConVar cvar_ColorGlobalOffBlu;
-static int playerStateColors[4][4];
-static ConVar cvar_UsePvPParticle;
-static bool usePvPParticle;
-static ConVar cvar_BuildingsVersusZombies;
-static ConVar cvar_BuildingsVersusBosses;
-static ePlayerVsAiFlags pvaBuildings;
-static ConVar cvar_PlayersVersusZombies;
-static ConVar cvar_PlayersVersusBosses;
-static ePlayerVsAiFlags pvaPlayers;
-
-static GlobalForward fwdGlobalChanged;
-static GlobalForward fwdPairInvited;
-static GlobalForward fwdPairChanged;
+float clientSpawnTime[MAXPLAYERS+1]; //game time the client last spawned (to allow bots)
+int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slowly decay over time, count up base on client alive time
+bool clientInvalidHealNotif[MAXPLAYERS+1];
+float clientInvalidHealNotifLast[MAXPLAYERS+1];
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
 #define COOKIE_TAUNTKILL "canBeTauntKilled"
 #define COOKIE_MIRRORME "mirrorPvPDamage"
 #define COOKIE_CONDITIONS "allowConditions"
+#define COOKIE_BANDATA "pvpBanned"
 
 #define IsGlobalPvP(%1) (globalPvP[%1]!=State_Disabled && !(globalPvP[%1]&State_ExternalOff))
-#define IsMirrored(%1) (mirrorDamage[%1]!=State_Disabled && !(mirrorDamage[%1]&State_ExternalOff))
 
-static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
-	char def[20], val[20];
-	cvar.GetDefault(def, sizeof(def));
-	cvar.GetString(val, sizeof(val));
-	Call_StartFunction(INVALID_HANDLE, handler);
-	Call_PushCell(cvar);
-	Call_PushString(def);
-	Call_PushString(val);
-	Call_Finish();
-	cvar.AddChangeHook(handler);
-}
+#include "pvpoptin/utils.sp"
+#include "pvpoptin/config.sp"
+#include "pvpoptin/dtours.sp"
+#include "pvpoptin/api.sp"
+
 public void OnPluginStart() {
 	LoadTranslations("common.phrases");
 	LoadTranslations("pvpoptin.phrases");
 	
-	//to find this signature you can go up Spawn function through powerups to bonuspacks.
-	//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
-	//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
-	GameData pvpfundata = new GameData("pvpoptin.games");
-	if (pvpfundata != INVALID_HANDLE) {
-		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot_IsEnemy");
-		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
-		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
-		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack_IsPotentiallyChaseable");
-		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss_FindClosestVisibleVictim");
-		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
-		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
-		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
-		delete pvpfundata;
-	}
+	Plugin_SetupDHooks();
 	
-	RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
-	RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
-	RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
-	RegClientCookie(COOKIE_TAUNTKILL, "Client is find with being taunt-killed for funnies", CookieAccess_Private);
-	RegClientCookie(COOKIE_CONDITIONS, "Client is find with being jarated, etc for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_TAUNTKILL, "Client is fine with being taunt-killed for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_CONDITIONS, "Client is fine with being jarated, etc for funnies", CookieAccess_Private);
+	delete RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp> <Reason> if banned from pvp", CookieAccess_Private);
 	
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
@@ -244,6 +108,8 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_forcepvp", Command_ForcePvP, ADMFLAG_SLAY, "Usage: <target|'map'> <1/0> - Force the targets into global PvP; 'map' applies to players that will join as well; Resets on map change");
 	RegAdminCmd("sm_mirror", Command_Mirror, ADMFLAG_SLAY, "Usage: <target> <1/0> - Force mirror with non-PvP players for the target");
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
+	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> [<minutes> [reason]] - Ban a player from taking part in pvp");
+	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_UNBAN, "Usage: <name|userid> - Unban a player from pvp");
 	
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
@@ -261,43 +127,9 @@ public void OnPluginStart() {
 	HookEvent("teamplay_round_win", OnRoundStateChange);
 	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
 	
-	cvar_Version = CreateConVar( "pvp_optin_version", PLUGIN_VERSION, "PvP Opt-In Version", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	cvar_JoinForceState = CreateConVar( "pvp_joinoverride", "0", "Define global PvP State when player joins. 0 = Load player choice, 1 = Force out of PvP, -1 = Force enable PvP", _, true, -1.0, true, 1.0);
-	cvar_NoCollide = CreateConVar( "pvp_nocollide", "1", "Can be used to disable player collision between enemies. 0 = Don't change, 1 = with global pvp disabled, 2 = never collied", _, true, 0.0, true, 2.0);
-	cvar_ActiveStates = CreateConVar( "pvp_gamestates", "all", "Games states where this plugin should be active. Possible values: all, waiting, pregame, running, overtime, suddendeath, gameover", _);
-	cvar_PairPvPRequestMenu = CreateConVar( "pvp_requestmenus", "1", "When players request pair PvP: 0 = requeste will have to use /pvp requester, 1 = requestee will receive a menu, 2 = will force VGUI menus", _, true, 0.0, true, 2.0);
-	cvar_BuildingsVersusZombies = CreateConVar( "pvp_buildings_vs_zombies", "2", "Control sentry <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
-	cvar_BuildingsVersusBosses = CreateConVar( "pvp_buildings_vs_bosses", "2", "Control sentry <-> boss targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
-	cvar_PlayersVersusZombies = CreateConVar( "pvp_players_vs_zombies", "1", "Control player <-> skeleton targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
-	cvar_PlayersVersusBosses = CreateConVar( "pvp_players_vs_bosses", "1", "Control player <-> boss targeting. Possible values: -1 = Fully ignore, even manual damage, 0 = Never target, 1 = Global PvP only, 2 = This is PvE so Always", _, true, -1.0, true, 2.0);
-	cvar_UsePlayerColors = CreateConVar( "pvp_playertaint_enable", "1", "Can be used to disable player tainting based on pvp state", _, true, 0.0, true, 1.0);
-	cvar_ColorGlobalOnRed = CreateConVar( "pvp_playertaint_redon", "125 125 255", "Color for players on RED with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
-	cvar_ColorGlobalOnBlu = CreateConVar( "pvp_playertaint_bluon", "255 125 125", "Color for players on BLU with global PvP enabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
-	cvar_ColorGlobalOffRed = CreateConVar( "pvp_playertaint_redoff", "255 255 225", "Color for players on RED with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
-	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
-	cvar_UsePvPParticle = CreateConVar( "pvp_playerparticle_enable", "1", "Play a particle on players that can be PvPed. Playes for both global and pair PvP", _, true, 0.0, true, 1.0);
-	//hook cvars and load current values
-	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
-	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
-	hookAndLoadCvar(cvar_NoCollide, OnCVarChanged_NoCollision);
-	hookAndLoadCvar(cvar_ActiveStates, OnCVarChanged_ActiveStates);
-	hookAndLoadCvar(cvar_PairPvPRequestMenu, OnCVarChanged_PairPvPRequestMenu);
-	hookAndLoadCvar(cvar_BuildingsVersusZombies, OnCVarChanged_BuildingsVersusZombies);
-	hookAndLoadCvar(cvar_BuildingsVersusBosses, OnCVarChanged_BuildingsVersusBosses);
-	hookAndLoadCvar(cvar_PlayersVersusZombies, OnCVarChanged_PlayersVersusZombies);
-	hookAndLoadCvar(cvar_PlayersVersusBosses, OnCVarChanged_PlayersVersusBosses);
-	hookAndLoadCvar(cvar_UsePlayerColors, OnCVarChanged_UsePlayerTaint);
-	hookAndLoadCvar(cvar_ColorGlobalOnRed, OnCVarChanged_PlayerTaint);
-	hookAndLoadCvar(cvar_ColorGlobalOnBlu, OnCVarChanged_PlayerTaint);
-	hookAndLoadCvar(cvar_ColorGlobalOffRed, OnCVarChanged_PlayerTaint);
-	hookAndLoadCvar(cvar_ColorGlobalOffBlu, OnCVarChanged_PlayerTaint);
-	hookAndLoadCvar(cvar_UsePvPParticle, OnCVarChanged_UsePvPParticle);
-	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
-	AutoExecConfig();
+	Plugin_SetupConvars();
 	
-	fwdGlobalChanged = new GlobalForward("pvp_OnGlobalChanged", ET_Event, Param_Cell, Param_Cell, Param_CellByRef);
-	fwdPairInvited = new GlobalForward("pvp_OnPairInvite", ET_Event, Param_Cell, Param_Cell);
-	fwdPairChanged = new GlobalForward("pvp_OnPairChanged", ET_Event, Param_Cell, Param_Cell, Param_Cell);
+	Plugin_SetupForwards();
 	
 	SetCookieMenuItem(HandleCookieMenu, 0, "PvP");
 	bool hotload;
@@ -317,8 +149,10 @@ public void OnPluginStart() {
 	}
 	if (hotload) RequestFrame(HotloadGameState);
 }
+
 public void OnAllPluginsLoaded() {
 	depNativeVotes = LibraryExists("nativevotes");
+	depMirrorDamage = LibraryExists("mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE;
 }
 
 public void OnPluginEnd() {
@@ -332,71 +166,12 @@ public void OnPluginEnd() {
 
 public void OnLibraryAdded(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = true;
+	if (StrEqual(name, "mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE) depMirrorDamage = true;
 }
 
 public void OnLibraryRemoved(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = false;
-}
-
-static void DHooksAttach() {
-	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && !detoured_INextBot_IsEnemy) {
-		detoured_INextBot_IsEnemy = DHookEnableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
-	} else {
-		PrintToServer("Could not hook INextBot::IsEnemy(this,CBaseEntity*). Bots will shoot at protected players!");
-	}
-	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CZombieAttack_IsPotentiallyChaseable) {
-		detoured_CZombieAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, true, Detour_CZombieAttack_IsPotentiallyChaseable);
-	} else {
-		PrintToServer("Could not hook CZombieAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
-	}
-	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable) {
-		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
-	} else {
-		PrintToServer("Could not hook CHeadlessHatmanAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
-	}
-	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && !detoured_CMerasmusAttack_IsPotentiallyChaseable) {
-		detoured_CMerasmusAttack_IsPotentiallyChaseable = DHookEnableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
-	} else {
-		PrintToServer("Could not hook CMerasmusAttack::IsPotentiallyChaseable(this,CZombie*,CBaseCombatCharacter*)");
-	}
-	if (hdl_CEyeballBoss_FindClosestVisibleVictim != INVALID_HANDLE && !detoured_CEyeballBoss_FindClosestVisibleVictim) {
-		detoured_CEyeballBoss_FindClosestVisibleVictim = DHookEnableDetour(hdl_CEyeballBoss_FindClosestVisibleVictim, true, Detour_CEyeballBoss_FindClosestVisibleVictim);
-	} else {
-		PrintToServer("Could not hook CEyeballBoss::FindClosestVisibleVictim(this)");
-	}
-	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && !detoured_CTFPlayer_ApplyGenericPushbackImpulse) {
-		detoured_CTFPlayer_ApplyGenericPushbackImpulse = DHookEnableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
-	} else {
-		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
-	}
-	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && !detoured_CObjectSentrygun_ValidTargetPlayer) {
-		detoured_CObjectSentrygun_ValidTargetPlayer = DHookEnableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
-	} else {
-		PrintToServer("Could not hook CObjectSentrygun::ValidTargetPlayer(CTFPlayer*,Vector*,Vector*). Whack!");
-	}
-	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && !detoured_CObjectSentrygun_FoundTarget) {
-		detoured_CObjectSentrygun_FoundTarget = DHookEnableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
-	} else {
-		PrintToServer("Could not hook CObjectSentrygun::FoundTarget(CTFPlayer*,Vector*,bool). Turrets will always track zombies and bosses!");
-	}
-}
-static void DHooksDetach() {
-	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
-		detoured_INextBot_IsEnemy ^= DHookDisableDetour(hdl_INextBot_IsEnemy, true, Detour_INextBot_IsEnemy);
-	if (hdl_CZombieAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CZombieAttack_IsPotentiallyChaseable)
-		detoured_CZombieAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CZombieAttack_IsPotentiallyChaseable, true, Detour_CZombieAttack_IsPotentiallyChaseable);
-	if (hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable)
-		detoured_CHeadlessHatmanAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
-	if (hdl_CMerasmusAttack_IsPotentiallyChaseable != INVALID_HANDLE && detoured_CMerasmusAttack_IsPotentiallyChaseable)
-		detoured_CMerasmusAttack_IsPotentiallyChaseable ^= DHookDisableDetour(hdl_CMerasmusAttack_IsPotentiallyChaseable, true, Detour_BossAttack_IsPotentiallyChaseable);
-	if (hdl_CEyeballBoss_FindClosestVisibleVictim != INVALID_HANDLE && detoured_CEyeballBoss_FindClosestVisibleVictim)
-		detoured_CEyeballBoss_FindClosestVisibleVictim ^= DHookDisableDetour(hdl_CEyeballBoss_FindClosestVisibleVictim, true, Detour_CEyeballBoss_FindClosestVisibleVictim);
-	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && detoured_CTFPlayer_ApplyGenericPushbackImpulse)
-		detoured_CTFPlayer_ApplyGenericPushbackImpulse ^= DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
-	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && detoured_CObjectSentrygun_ValidTargetPlayer)
-		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
-	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FoundTarget)
-		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
+	if (StrEqual(name, "mirrordamage")) depMirrorDamage = false;
 }
 
 public void OnMapEnd() {
@@ -406,9 +181,10 @@ public void OnMapEnd() {
 public void OnMapStart() {
 	UpdateActiveState(GameState_PreGame);
 	
-	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
-	PrecacheParticleSystem("pvpoptin_indicator");
+//	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
+	PrecacheParticleSystem(PVP_PARTICLE);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
+	CreateTimer(1.0, Timer_EverySecond, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
 public void TF2_OnWaitingForPlayersStart() {
 	UpdateActiveState(GameState_Waiting);
@@ -451,7 +227,7 @@ static void HotloadGameState() {
 		}
 	}
 }
-static void UpdateActiveState(eGameState gameState) {
+void UpdateActiveState(eGameState gameState) {
 	bool wasActive = isActive;
 	isActive = (activeGameStates & (currentGameState=gameState))!=GameState_Never;
 	if (isActive != wasActive) {
@@ -472,15 +248,22 @@ static void UpdateActiveState(eGameState gameState) {
 public void OnClientConnected(int client) {
 	globalPvP[client] = State_Disabled;
 	SetPairPvPClient(client);
-	pairPvPrequest[client]=0;
-	pairPvPignored[client]=false;
-	clientFirstSpawn[client]=true;
-	allowTauntKilled[client]=false;
-	allowLimitedConditions[client]=false;
+	pairPvPrequest[client] = 0;
+	pairPvPignored[client] = false;
+	clientFirstSpawn[client] = true;
+	allowTauntKilled[client] = false;
+	allowLimitedConditions[client] = false;
 	mirrorDamage[client] = State_Disabled;
 	clientLatestPvPAction[client] = -PvP_DISENGAGE_COOLDOWN;
 	clientLatestPvPRequest[client] = -PvP_PAIRREQUEST_COOLDOWN;
 	clientParticleAttached[client] = 0;
+	clientPvPBannedUntil[client] = 0;
+	clientPvPBannedReason[client][0] = 0;
+	clientForceUpdateParticle[client] = false;
+	clientSpawnTime[client] = 0.0;
+	clientSpawnKillScore[client] = 0;
+	clientInvalidHealNotif[client] = false;
+	clientInvalidHealNotifLast[client] = 0.0;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
 	}
@@ -503,7 +286,7 @@ public void OnClientCookiesCached(int client) {
 		UpdateEntityFlagsGlobalPvP(client, true);
 		return;
 	}
-	char buffer[2];
+	char buffer[128];
 	Handle cookie;
 	if (joinForceState!=0) {
 		SetGlobalPvP(client, joinForceState<0);
@@ -527,6 +310,13 @@ public void OnClientCookiesCached(int client) {
 	if((cookie = FindClientCookie(COOKIE_TAUNTKILL)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		allowTauntKilled[client] = view_as<bool>(StringToInt(buffer));
 		delete cookie;
+	}
+	if((cookie = FindClientCookie(COOKIE_BANDATA)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+		int read = StringToIntEx(buffer,clientPvPBannedUntil[client]);
+		clientPvPBannedUntil[client] *= 60;
+		strcopy(clientPvPBannedReason[client], sizeof(clientPvPBannedReason[]), buffer[read]);
+		delete cookie;
+		BanClientPvP(-1,client,0,"");//reload
 	}
 }
 
@@ -553,6 +343,17 @@ static void ShowCookieSettingsMenu(int client) {
 		Format(buffer, sizeof(buffer), "[  ] %T", "SettingsMenuIgnorePair", client);
 		menu.AddItem("ignorepvp", buffer);
 	}
+#if defined _mirrordamage_included
+	if (depMirrorDamage) {
+		if (MirrorDamage_Status(client, MirrorDealt)) {
+			Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuMirrorDamage", client);
+			menu.AddItem("mirror", buffer, ITEMDRAW_DISABLED);
+		} else {
+			Format(buffer, sizeof(buffer), "[  ] %T", "SettingsMenuMirrorDamage", client);
+			menu.AddItem("mirror", buffer, ITEMDRAW_DISABLED);
+		}
+	} else //...
+#endif
 	if (mirrorDamage[client] & State_Enabled) {
 		Format(buffer, sizeof(buffer), "[X] %T", "SettingsMenuMirrorDamage", client);
 		menu.AddItem("mirror", buffer);
@@ -603,174 +404,7 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 		delete menu;
 	}
 }
-
 //endregion
-
-//region cvar handling
-public void OnCVarChanged_Version(ConVar convar, const char[] oldValue, const char[] newValue) {
-	if (!StrEqual(newValue, PLUGIN_VERSION)) convar.SetString(PLUGIN_VERSION);
-}
-public void OnCVarChanged_JoinForceState(ConVar convar, const char[] oldValue, const char[] newValue) {
-	joinForceState = convar.IntValue;
-}
-public void OnCVarChanged_NoCollision(ConVar convar, const char[] oldValue, const char[] newValue) {
-	noCollideState = convar.IntValue;
-}
-public void OnCVarChanged_ActiveStates(ConVar convar, const char[] oldValue, const char[] newValue) {
-	eGameState activeStates;
-	if (StrContains(newValue,"all",false)!=-1) { activeStates = view_as<eGameState>(-1); }
-	else {
-		if (StrContains(newValue,"pregame",false)!=-1) activeStates |= GameState_PreGame;
-		if (StrContains(newValue,"waiting",false)!=-1) activeStates |= GameState_Waiting;
-		if (StrContains(newValue,"running",false)!=-1) activeStates |= GameState_Running;
-		if (StrContains(newValue,"overtime",false)!=-1) activeStates |= GameState_Overtime;
-		if (StrContains(newValue,"suddendeath",false)!=-1) activeStates |= GameState_SuddenDeath;
-		if (StrContains(newValue,"gameover",false)!=-1) activeStates |= GameState_GameOver;
-	}
-	activeGameStates = activeStates;
-	UpdateActiveState(currentGameState);
-}
-public void OnCVarChanged_PairPvPRequestMenu(ConVar convar, const char[] oldValue, const char[] newValue) {
-	pairPvPRequestMenu = convar.IntValue;
-}
-public void OnCVarChanged_BuildingsVersusZombies(ConVar convar, const char[] oldValue, const char[] newValue) {
-	ePlayerVsAiFlags value;
-	switch (convar.IntValue) {
-		case -1: value = PvA_Zombies_Ignored;
-		case 0: value = PvA_Zombies_Never;
-		case 1: value = PvA_Zombies_GlobalPvP;
-		case 2: value = PvA_Zombies_Always;
-		default: {
-			PrintToServer("Invalid value for Building VS Zombies, using -1");
-			value = PvA_Zombies_Ignored;
-		}
-	}
-	pvaBuildings = (pvaBuildings & PvA_BOSSES) | value;
-}
-public void OnCVarChanged_BuildingsVersusBosses(ConVar convar, const char[] oldValue, const char[] newValue) {
-	ePlayerVsAiFlags value;
-	switch (convar.IntValue) {
-		case -1: value = PvA_Bosses_Ignored;
-		case 0: value = PvA_Bosses_Never;
-		case 1: value = PvA_Bosses_GlobalPvP;
-		case 2: value = PvA_Bosses_Always;
-		default: {
-			PrintToServer("Invalid value for Building VS Bosses, using -1");
-			value = PvA_Bosses_Ignored;
-		}
-	}
-	pvaBuildings = (pvaBuildings & PvA_ZOMBIES) | value;
-}
-public void OnCVarChanged_PlayersVersusZombies(ConVar convar, const char[] oldValue, const char[] newValue) {
-	ePlayerVsAiFlags value;
-	switch (convar.IntValue) {
-		case -1: value = PvA_Zombies_Ignored;
-		case 0: value = PvA_Zombies_Never;
-		case 1: value = PvA_Zombies_GlobalPvP;
-		case 2: value = PvA_Zombies_Always;
-		default: {
-			PrintToServer("Invalid value for Player VS Zombies, using -1");
-			value = PvA_Zombies_Ignored;
-		}
-	}
-	pvaPlayers = (pvaPlayers & PvA_BOSSES) | value;
-}
-public void OnCVarChanged_PlayersVersusBosses(ConVar convar, const char[] oldValue, const char[] newValue) {
-	ePlayerVsAiFlags value;
-	switch (convar.IntValue) {
-		case -1: value = PvA_Bosses_Ignored;
-		case 0: value = PvA_Bosses_Never;
-		case 1: value = PvA_Bosses_GlobalPvP;
-		case 2: value = PvA_Bosses_Always;
-		default: {
-			PrintToServer("Invalid value for Player VS Bosses, using -1");
-			value = PvA_Bosses_Ignored;
-		}
-	}
-	pvaPlayers = (pvaPlayers & PvA_ZOMBIES) | value;
-}
-public void OnCVarChanged_UsePlayerTaint(ConVar convar, const char[] oldValue, const char[] newValue) {
-	if (!(usePlayerStateColors = convar.BoolValue)) {
-		for (int i=1;i<=MaxClients;i++) {
-			if (IsClientInGame(i) && GetClientTeam(i)>1) {
-				SetPlayerColor(i);
-			}
-		}
-	}
-}
-public void OnCVarChanged_PlayerTaint(ConVar convar, const char[] oldValue, const char[] newValue) {
-	//spliterate
-	char args[4][16];
-	char buffer[50];
-	strcopy(buffer, sizeof(buffer), newValue);
-	int argc;
-	for (int to;argc<4;) {
-		if ((to = SplitString(buffer, " ", args[argc], sizeof(args[])))<0) {
-			strcopy(args[argc], sizeof(args[]), buffer); //manually get tail
-		}
-		if (strlen(args[argc])) argc++; //no empty parts
-		if (to >= strlen(buffer) || to < 0) break;
-		Format(buffer, sizeof(buffer), "%s", buffer[to]); //cut head
-	}
-	//parse values
-	int r,g,b,a=255; bool valid=true;
-	if (argc == 1 && args[0][0] == '#') {
-		int color, plen = StringToIntEx(args[0][1],color,16), slen = strlen(args[0])-1;
-		if (slen != plen) { //fallthrough
-			valid = false;
-		} else if (slen == 6) {
-			r = (color>>16) & 0xff;
-			g = (color>>8) & 0xff;
-			b = color & 0xff;
-		} else if (slen == 8) {
-			r = (color>>24) & 0xff;
-			g = (color>>16) & 0xff;
-			b = (color>>8) & 0xff;
-			a = color & 0xff;
-		}
-	} else if (argc == 3 || argc == 4) {
-		valid &= strlen(args[0]) == StringToIntEx(args[0], r) && 0<=r<=255;
-		valid &= strlen(args[1]) == StringToIntEx(args[1], g) && 0<=g<=255;
-		valid &= strlen(args[2]) == StringToIntEx(args[2], b) && 0<=b<=255;
-		if (argc == 4)
-			valid &= strlen(args[3]) == StringToIntEx(args[3], a) && 0<=a<=255;
-	} else valid = false;
-	if (!valid) {
-		convar.SetString(oldValue); // unknown format
-		return;
-	}
-	//pick target
-	int ci;
-	if (convar == cvar_ColorGlobalOnRed) {
-		ci = 0;
-	} else if (convar == cvar_ColorGlobalOnBlu) {
-		ci = 1;
-	} else if (convar == cvar_ColorGlobalOffRed) {
-		ci = 2;
-	} else if (convar == cvar_ColorGlobalOffBlu) {
-		ci = 3;
-	}
-	playerStateColors[ci][0] = r;
-	playerStateColors[ci][1] = g;
-	playerStateColors[ci][2] = b;
-	playerStateColors[ci][3] = a;
-	//update clients
-	for (int i=1;i<=MaxClients;i++) {
-		if (Client_IsIngame(i)&&IsPlayerAlive(i)) {
-			UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
-		}
-	}
-}
-public void OnCVarChanged_UsePvPParticle(ConVar convar, const char[] oldValue, const char[] newValue) {
-	if (!(usePvPParticle = convar.BoolValue)) {
-		for (int client=1;client<=MaxClients;client++) {
-			if (Client_IsIngame(client) && GetClientTeam(client)>1) {
-				ParticleEffectStop(client);
-			}
-		}
-	}
-}
-//enregion
 
 //region command and toggling/requesting pvp
 bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
@@ -783,6 +417,70 @@ bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
 		}
 	}
 	return true;
+}
+
+public Action Command_BanPvP(int client, int args) {
+	if (args < 1) {
+		ReplyToCommand(client, "Usage: sm_banpvp <#user|name> [<minutes> [Reason]]");
+		return Plugin_Handled;
+	}
+	
+	int len, next_len;
+	char argstring[256];
+	GetCmdArgString(argstring, sizeof(argstring));
+	
+	char arg[65];
+	len = BreakString(argstring, arg, sizeof(arg));
+	
+	int target = FindTarget(client, arg, true);
+	if (target == -1) {
+		return Plugin_Handled;
+	}
+	
+	if (args == 1) {
+		int restTime = clientPvPBannedUntil[target]-GetTime();
+		if (restTime>0) {
+			ReplyToCommand(client, "[PvP] '%L' was banned from PvP for %i more minutes (Reason: %s)", target, RoundToCeil(restTime/60.0), clientPvPBannedReason[target]);
+		} else {
+			ReplyToCommand(client, "[PvP] '%L' is not banned from PvP", target);
+		}
+		return Plugin_Handled;
+	}
+	
+	char stime[12];
+	char reason[128];
+	if ((next_len = BreakString(argstring[len], stime, sizeof(stime))) != -1) {
+		len += next_len;
+		strcopy(reason, sizeof(reason), argstring[len]);
+	} else {
+		strcopy(reason, sizeof(reason), "<No Reason>");
+	}
+	int time = StringToInt(stime);
+	if (time <= 0) {
+		time = 1025280; //2 years
+	}
+	
+	
+	BanClientPvP(client, target, time, reason);
+
+	return Plugin_Handled;
+}
+public Action Command_UnbanPvP(int client, int args) {
+	if (GetCmdArgs() < 1) {
+		ReplyToCommand(client, "Usage: sm_unbanpvp <#user|name>");
+	}
+	
+	char arg[65];
+	GetCmdArgString(arg, sizeof(arg));
+	
+	int target = FindTarget(client, arg, true);
+	if (target == -1) {
+		return Plugin_Handled;
+	}
+	
+	BanClientPvP(client, target, 0, "");
+
+	return Plugin_Handled;
 }
 
 public Action Command_ForceRequest(int client, int args) {
@@ -821,6 +519,10 @@ public Action Command_ForceRequest(int client, int args) {
 	return Plugin_Handled;
 }
 public Action Command_TogglePvP(int client, int args) {
+	if (clientPvPBannedUntil[client] > GetTime()) {
+		CPrintToChat(client, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[client]-GetTime())/60.0), clientPvPBannedReason[client]);
+		return Plugin_Handled;
+	}
 	if (GetCmdArgs()==0) {
 		bool enterPvP = !(globalPvP[client]&State_Enabled);
 		//timeLeft = cooldown - time spent in pvp
@@ -891,6 +593,7 @@ public Action Command_ForcePvP(int client, int args) {
 			else globalPvP[0] &=~ State_Forced;
 			for (int i=1;i<=MaxClients;i++) {
 				if (!Client_IsIngame(i) || IsFakeClient(i)) continue;
+				if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 				if (!pvpon) globalPvP[i] &=~ State_Forced; //turn off previously individually set flags
 				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 			}
@@ -912,6 +615,7 @@ public Action Command_ForcePvP(int client, int args) {
 				for (int i;i<matches;i++) {
 					int player = target[i];
 					if (!Client_IsIngame(player)) continue;
+					if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 					if (pvpon) {
 						globalPvP[player] |= State_Forced;
 						CPrintToChat(player, "%t","Someone forced your global pvp", client);
@@ -933,6 +637,9 @@ public Action Command_ForcePvP(int client, int args) {
 }
 
 public Action Command_Mirror(int client, int args) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) return Plugin_Continue; //not our command anymore
+#endif
 	if (GetCmdArgs()!=2) {
 		char name[16];
 		GetCmdArg(0, name, sizeof(name));
@@ -971,6 +678,9 @@ public Action Command_Mirror(int client, int args) {
 }
 
 public Action Command_MirrorMe(int client, int args) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) return Plugin_Continue; //not our command anymore
+#endif
 	SetMirroredState(client, !(mirrorDamage[client]&State_Enabled));
 	return Plugin_Handled;
 }
@@ -995,18 +705,20 @@ public Action Command_StopPvP(int client, int args) {
 
 static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 	float tmp;
-	if (requester == requestee) {
+	if (requester == requestee || pairPvPignored[requestee] || clientPvPBannedUntil[requestee] > GetTime()) {
 		//silent fail
+	} else if (clientPvPBannedUntil[requester] > GetTime()) {
+		CPrintToChat(requester, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[requester]-GetTime())/60.0), clientPvPBannedReason[requester]);
 	} else if (antiSpam && (tmp = (PvP_PAIRREQUEST_COOLDOWN - (GetClientTime(requester) - clientLatestPvPRequest[requester]))) > 0.0) {
 		CPrintToChat(requester, "%t", "Last pair pvp request too recent", RoundToCeil(tmp));
 	} else if (IsFakeClient(requestee)) {
 		CPrintToChat(requester, "%t", "Bots can not use pair pvp");
-	} else if (pairPvP[requester][requestee]) {
+	} else if (pairPvP[requester][requestee]) { //already paired, leave
 		CPrintToChat(requestee, "%t", "Someone disengaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You disengaged pair pvp", requestee);
 		pairPvPrequest[requester]=pairPvPrequest[requestee]=0;
 		SetPairPvP(requester,requestee,false);
-	} else if (pairPvPrequest[requestee]==requester) {
+	} else if (pairPvPrequest[requestee]==requester) { //response / accept
 		CPrintToChat(requestee, "%t", "You engaged pair pvp", requester);
 		CPrintToChat(requester, "%t", "You engaged pair pvp", requestee);
 		pairPvPrequest[requester]=pairPvPrequest[requestee]=0;
@@ -1161,7 +873,7 @@ public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int pa
 //endregion
 
 //region utilities to set and check pvp flags
-static void PrintGlobalPvpState(int client) {
+void PrintGlobalPvpState(int client) {
 	if (!IsClientInGame(client) || IsFakeClient(client) || GetClientTime(client)<2.0) return;
 	if (IsGlobalPvP(client)) {
 		CPrintToChat(client, "%t", "Global pvp state on line1");
@@ -1211,7 +923,7 @@ static void SetPairPvPIgnored(int client, bool ignore) {
 	}
 }
 //return false if cancelled
-static bool SetPairPvP(int client1, int client2, bool pvp) {
+bool SetPairPvP(int client1, int client2, bool pvp) {
 	if (Notify_OnPairChanged(client1, client2, pvp)) {
 		pairPvP[client1][client2] = pairPvP[client2][client1] = pvp;
 		UpdatePvPParticles(client1);
@@ -1232,6 +944,14 @@ static bool HasAnyPairPvP(int client) {
 		if (pairPvP[client][i]) return true;
 	}
 	return false;
+}
+bool IsMirrored(int client) {
+#if defined _mirrordamage_included
+	if (depMirrorDamage) {
+		return MirrorDamage_Status(client, MirrorDealt);
+	}
+#endif
+	return (mirrorDamage[client]!=State_Disabled && !(mirrorDamage[client]&State_ExternalOff));
 }
 static void SetMirroredState(int client, bool mirrored) {
 	Handle cookie;
@@ -1272,7 +992,7 @@ static void SetLimitedConditionsAllowed(int client, bool enabled) {
 	else CPrintToChat(client, "%t", "Limited Conditions Disabled");
 }
 
-static int CanClientsPvP(int client1, int client2) {
+int CanClientsPvP(int client1, int client2) {
 	int canpvp;
 	if (client1==client2) canpvp |= 1;
 	if (globalPvP[0]!=State_Disabled) canpvp |= 2;
@@ -1281,133 +1001,68 @@ static int CanClientsPvP(int client1, int client2) {
 	return canpvp;
 	//duels should be checked here, can't real tho, that's GC stuff
 }
+/** 
+ * admin < 0 to "reload", time and reason will be ignored
+ * time <= 0 to unban, reason will be ignored
+ * @param time in minutes
+ */
+void BanClientPvP(int admin, int client, int time, const char[] reason) {
+	bool banned;
+	if (admin >= 0) {
+		Cookie cookie = Cookie.Find(COOKIE_BANDATA);
+		if (time > 0) {
+			banned = true;
+			ShowActivity2(admin, "[PvP] ", "%L banned %L from PvP for %i minutes (Reason: %s)", admin, client, time, reason);
+			clientPvPBannedUntil[client] = GetTime()+(time*60);
+			strcopy(clientPvPBannedReason[client], sizeof(clientPvPBannedReason[]), reason);
+			char buffer[100];
+			Format(buffer, sizeof(buffer), "%i %s", (clientPvPBannedUntil[client]+59)/60 /* round up */, clientPvPBannedReason[client]);
+			if (cookie != null) {
+				cookie.Set(client, buffer);
+				delete cookie;
+			}
+			Notify_OnBanAdded(admin, client, time, reason);
+		} else {
+			ShowActivity2(admin, "[PvP] ", "%L unbanned %L from PvP", admin, client);
+			clientPvPBannedUntil[client] = 0;
+			if (cookie != null) {
+				cookie.Set(client, "");
+				delete cookie;
+			}
+			Notify_OnBanRemoved(admin, client);
+		}
+	} else if (clientPvPBannedUntil[client]) {
+		if (GetTime() > clientPvPBannedUntil[client]) { //we loaded a ban, but the ban is over?
+			clientPvPBannedUntil[client] = 0;
+			//clear cookie
+			Cookie cookie = Cookie.Find(COOKIE_BANDATA);
+			if (cookie != null) {
+				cookie.Set(client, "");
+				delete cookie;
+			}
+		} else {
+			banned = true;
+		}
+	}
+	if (banned) {
+		EndAllPairPvPFor(client);
+		globalPvP[client] &=~ ENABLEDMASK_EXTERNAL|State_Forced;
+		SetGlobalPvP(client, false);
+		CreateTimer(1.0, BannedFromPvPNotice, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+	}
+}
+public Action BannedFromPvPNotice(Handle timer, int user) {
+	int client = GetClientOfUserId(user);
+	if (!client || !IsClientInGame(client)) return Plugin_Stop;
+	CPrintToChat(client, "%t", "You have been banned from pvp", RoundToCeil((clientPvPBannedUntil[client]-GetTime())/60.0), clientPvPBannedReason[client]);
+	return Plugin_Stop;
+}
 //endregion
 
 //region actual damage blocking and entity stuff
 
-// this dhook simply makes bots ignore players that dont want to pvp
-public MRESReturn Detour_INextBot_IsEnemy(Address pThis, DHookReturn hReturn, DHookParam hParams) {
-	int target = hParams.Get(1);
-	int player = GetPlayerEntity(target);
-	if (Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0)) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
-}
-
-public MRESReturn Detour_CZombieAttack_IsPotentiallyChaseable(DHookReturn hReturn, DHookParam hParams) {
-	if (hParams.IsNull(2))
-		return MRES_Ignored;// we're not changing behaviour
-	int player = hParams.Get(2);
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_ZOMBIES;
-	bool blocked;
-	if (targetMode == PvA_Zombies_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Zombies_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
-}
-public MRESReturn Detour_BossAttack_IsPotentiallyChaseable(DHookReturn hReturn, DHookParam hParams) {
-	if (hParams.IsNull(2))
-		return MRES_Ignored;// we're not changing behaviour
-	int player = hParams.Get(2);
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
-	bool blocked;
-	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
-}
-public MRESReturn Detour_CEyeballBoss_FindClosestVisibleVictim(int eyeball, DHookReturn hReturn) {
-	int target = hReturn.Value;
-	if (1 > target > MaxClients) return MRES_Ignored; //not targeting a player
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
-	bool blocked;
-	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(target) && !IsGlobalPvP(target) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = INVALID_ENT_REFERENCE;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
-}
-
-public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHookParam hParams) {
-//	float impulse[3]; hParams.GetVector(1, impulse);
-	if (hParams.IsNull(2)) return MRES_Ignored;
-	int source = hParams.Get(2);
-	if (Client_IsValid(source) && !CanClientsPvP(source,player))
-		return MRES_Supercede;//don't call original to apply force
-	return MRES_Ignored;
-}
-
-public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookReturn hReturn, DHookParam hParams) {
-//	float impulse[3]; hParams.GetVector(1, impulse);
-	if (hParams.IsNull(1)) return MRES_Ignored;
-	int target = hParams.Get(1);
-	int engi = GetPlayerEntity(building);
-	if (Client_IsValid(target) && Client_IsValid(engi) && !CanClientsPvP(engi,target)) {
-		hReturn.Value = false;
-		return MRES_Override; //idk what whacky stuff valve is doing there
-	}
-	return MRES_Ignored;
-}
-
-public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam hParams) {
-	if (hParams.IsNull(1)) return MRES_Ignored;
-	int target = hParams.Get(1);
-	int engi = GetPlayerEntity(building);
-	bool blocked;
-	char classname[64];
-	if (target == INVALID_ENT_REFERENCE) return MRES_Ignored; //error, do whatever you want
-	GetEntityClassname(target, classname, sizeof(classname));
-	if (IsEntityZombie(classname)) {
-		//we are trying to target a zombie, are we allowed to do at all?
-		ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
-		if (mode == PvA_Zombies_Always) blocked = false;
-		else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
-		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
-	} else if (IsEntityBoss(classname)) {
-		//we are trying to target a boss, are we allowed to do at all?
-		ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
-		if (mode == PvA_Bosses_Always) blocked = false;
-		else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
-		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
-	} else if (IsEntityBuilding(classname)) {
-		//hey ho, we target another building
-		int otherEngi = GetPlayerEntity(target);
-		blocked = Client_IsValid(otherEngi) && !CanClientsPvP(engi,otherEngi);
-	}
-	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
-}
-
-//keep as simple and quick as possible
-//don't check result, that does NOT pass the previous result!
-public Action CH_PassFilter(int ent1, int ent2, bool &result) {
-	if (noCollideState && 1<=ent1<=MaxClients && 1<=ent2<=MaxClients) {
-		//pass 1, collision mod is on and we have clients
-		int team1 = GetClientTeam(ent1);
-		int team2 = GetClientTeam(ent2);
-		if (team1 != team2 && team1 > 1 && team2 > 1 && (noCollideState > 1 || !CanClientsPvP(ent1, ent2))) {
-			//pass2, clients are on different teams and can not pvp (or override): treat as same team (aka friendly)
-			result = false;
-			return Plugin_Changed;
-		}
-	}
-	return Plugin_Continue;
-}
-
 public void OnEntityCreated(int entity, const char[] classname) {
-	if (StrEqual(classname, "player")) {
+	if (StrEqual(classname, "player")||StrEqual(classname, "tf_bot")) {
 		SDKHookClient(entity);
 	} else if (IsEntityZombie(classname)) {
 		SDKHook(entity, SDKHook_OnTakeDamage, OnZombieTakeDamage);
@@ -1420,6 +1075,7 @@ public void OnEntityCreated(int entity, const char[] classname) {
 
 static void SDKHookClient(int client) {
 	SDKHook(client, SDKHook_OnTakeDamageAlive, OnClientTakeDamage);
+	SDKHook(client, SDKHook_OnTakeDamagePost, OnClientTakeDamagePost);
 	SDKHook(client, SDKHook_SpawnPost, OnClientSpawnPost);
 }
 
@@ -1470,9 +1126,20 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	int pvpGrant;
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
-	if (!Client_IsValid(source)) //didnt bring your hazardous environment suit?
+	if (!Client_IsValid(source)) { //didnt bring your hazardous environment suit?
 		return Plugin_Continue;
-	else if ((pvpGrant=CanClientsPvP(victim,source))) {
+#if defined _mirrordamage_included
+	} else if (depMirrorDamage && (MirrorDamage_Status(victim, MirrorTaken) || MirrorDamage_Status(source, MirrorDealt))) {
+		return Plugin_Continue; //mirror plugin will handle
+#endif
+	} else if (IsMirrored(source)) {
+		if (damagecustom == TF_CUSTOM_BACKSTAB)
+			damage = GetClientHealth(source) * 6.0;
+		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
+		//damage was mirrored
+	} else if (allowTauntKilled[victim] && TF2_IsPlayerInCondition(source, TFCond_Taunting)) {
+		return Plugin_Continue; //allow taunt-kill explicitly
+	} else if ((pvpGrant=CanClientsPvP(victim,source))) {
 		//don't update cooldowns if we're forced into pvp or damage is self-inflicted
 		// for now reset cooldowns on any pvp
 		if (pvpGrant&3 == 0 && pvpGrant&12 != 0) {
@@ -1480,22 +1147,45 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 			if (!IsFakeClient(source)) clientLatestPvPAction[source] = GetClientTime(source);
 		}
 		return Plugin_Continue; //pvp is on, go nuts
-	} else if (IsMirrored(source)) {
-		if (damagecustom == TF_CUSTOM_BACKSTAB)
-			damage = GetClientHealth(source) * 6.0;
-		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
-		//damage was mirrored
-	} else if (allowTauntKilled[victim] && TF2_IsPlayerInCondition(source, TFCond_Taunting))
-		return Plugin_Continue; //allow taunt-kill explicitly
+	}
 		
 	//block damage on victim
 	damage = 0.0;
 	ScaleVector(damageForce, 0.0);
 	return Plugin_Handled;
 }
-static void OnClientSpawnPost(int client) {
-	if (GetClientTeam(client)<=1 || IsFakeClient(client)) return;
+public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, float damage, int damagetype) {
+	//tracking spawnkilling here, so only react to human attackers and when the victim died
+	if (!isActive)
+		return;
+	if (!Client_IsIngame(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0) {
+		return;
+	}
+	if (!IsFakeClient(victim)) { //again, bots don't leave pvp
+		clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
+	}
 	
+	if (spawnKill_maxTime > 0.01 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot >= 0.0 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
+		float timeAlive = GetGameTime() - clientSpawnTime[victim];
+		if (timeAlive > spawnKill_maxTime) return; //idk, just bad?
+		int score = spawnKill_minIncrease;
+		if (spawnKill_maxIncreaseRoot > 0.0001)
+			score += RoundToNearest(Pow((1.0-(timeAlive/spawnKill_maxTime))*spawnKill_maxIncreaseRoot,2.0)); //quadratic fall off
+		clientSpawnKillScore[attacker] += score;
+		
+		if (clientSpawnKillScore[attacker] >= spawnKill_threashold) { //5 near instant kills
+			BanClientPvP(0, attacker, spawnKill_banTime, "Spawn Killing [Automatic]");
+		} else if (score > 0) {
+			CPrintToChat(attacker, "%t", "Spawn Killing is not allowed");
+			ShowActivity2(0, "[PvP] ", "Warned %N about Spawn Killing (Killed %N within %.2fs)", attacker, victim, timeAlive);
+		}
+	}
+}
+public void OnClientSpawnPost(int client) {
+	if (GetClientTeam(client)<=1) return;
+	clientSpawnTime[client] = GetGameTime();
+	
+	if (IsFakeClient(client)) return;
 	clientLatestPvPAction[client] = GetClientTime(client)-PvP_DISENGAGE_COOLDOWN;
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	if (clientFirstSpawn[client]) {
@@ -1505,6 +1195,7 @@ static void OnClientSpawnPost(int client) {
 }
 public void OnInventoryApplicationPost(Event event, const char[] name, bool dontBroadcast) {
 	int client = GetClientOfUserId(event.GetInt("userid"));
+	if (usePvPParticle) clientForceUpdateParticle[client] = true;
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 }
 
@@ -1513,7 +1204,10 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 	if (!isActive) return;
 	
 	//hide particle effect when cloaking
-	if (usePvPParticle && condition == TFCond_Cloaked) ParticleEffectStop(client);
+	if (usePvPParticle) {
+		if (condition == TFCond_Cloaked) ParticleEffectStop(client);
+		if (condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+	}
 	
 	if ((at = ArrayFind(condition, pvpConditions, sizeof(pvpConditions)))<0)
 		return; //not a condition we manage
@@ -1526,7 +1220,13 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 	TF2_RemoveCondition(client, condition);
 }
 
-static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
+public void TF2_OnConditionRemoved(int client, TFCond condition) {
+	if (!isActive) return;
+	if (usePvPParticle && condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+}
+
+
+void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (!Client_IsIngame(client)) return;
 	int ci;
 	if (TF2_GetClientTeam(client)==TFTeam_Blue) ci++;
@@ -1534,321 +1234,6 @@ static void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (usePlayerStateColors)
 		SetPlayerColor(client, playerStateColors[ci][0], playerStateColors[ci][1], playerStateColors[ci][2], playerStateColors[ci][3]);
 	if (usePvPParticle) UpdatePvPParticles(client);
-}
-
-//endregion
-
-//region natives
-
-public APLRes AskPluginLoad2(Handle plugin, bool late, char[] error, int err_max) {
-    CreateNative("pvp_IsActive",        Native_IsActive);
-    CreateNative("pvp_GetPlayerGlobal", Native_GetPlayerGlobal);
-    CreateNative("pvp_SetPlayerGlobal", Native_SetPlayerGlobal);
-    CreateNative("pvp_GetPlayerPair",   Native_GetPlayerPair);
-    CreateNative("pvp_ForcePlayerPair", Native_ForcePlayerPair);
-    CreateNative("pvp_CanAttack",       Native_CanAttack);
-    CreateNative("pvp_IsMirrored",      Native_IsMirrored);
-    CreateNative("pvp_SetMirrored",     Native_SetMirrored);
-    
-    RegPluginLibrary("pvpoptin");
-}
-
-//native bool pvp_IsActive();
-public any Native_IsActive(Handle plugin, int numParams) {
-	return isActive;
-}
-//native bool pvp_GetPlayerGlobal(int client, pvpEnabledState& pvpState = PVPState_Disabled);
-public any Native_GetPlayerGlobal(Handle plugin, int numParams) {
-	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
-	SetNativeCellRef(2, globalPvP[client]);
-	return IsGlobalPvP(client);
-}
-//native void pvp_SetPlayerGlobal(int client, int value=-1);
-public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
-	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
-	int value = GetNativeCell(2);
-	bool wasGlobalPvP = IsGlobalPvP(client);
-	
-	eEnabledState sflag = State_Disabled;
-	if (value > 0) sflag = State_ExternalOn;
-	else if (value == 0) sflag = State_ExternalOff;
-	sflag = (globalPvP[client] & ~ENABLEDMASK_EXTERNAL) | sflag;
-	
-	if (Notify_OnGlobalChanged(client, sflag)) {
-		globalPvP[client] = sflag;
-		if (wasGlobalPvP != IsGlobalPvP(client)) {
-			UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
-			PrintGlobalPvpState(client);
-		}
-	}
-}
-//native bool pvp_GetPlayerPair(int client1, int client2);
-public any Native_GetPlayerPair(Handle plugin, int numParams) {
-	int client1 = GetNativeCell(1);
-	int client2 = GetNativeCell(2);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
-	return pairPvP[client1][client2];
-}
-//native void pvp_ForcePlayerPair(int client1, int client2, bool value);
-public any Native_ForcePlayerPair(Handle plugin, int numParams) {
-	int client1 = GetNativeCell(1);
-	int client2 = GetNativeCell(2);
-	bool force = GetNativeCell(3);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
-	bool oldValue = pairPvP[client1][client2];
-	if (oldValue != force && client1!=client2 && Notify_OnPairChanged(client1, client2, force)) {
-		SetPairPvP(client1,client2,force);
-	}
-}
-//native bool pvp_CanAttack(int client1, int client2);
-public any Native_CanAttack(Handle plugin, int numParams) {
-	int client1 = GetNativeCell(1);
-	int client2 = GetNativeCell(2);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
-	return CanClientsPvP(client1, client2);
-}
-//native bool pvp_IsMirrored(int client, pvpEnabledState& pvpState = PVPState_Disabled );
-public any Native_IsMirrored(Handle plugin, int numParams) {
-	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
-	SetNativeCellRef(2, mirrorDamage[client]);
-	return IsMirrored(client);
-}
-//native void pvp_SetMirrored(int client, int value=-1);
-public any Native_SetMirrored(Handle plugin, int numParams) {
-	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
-	int value = GetNativeCell(2);
-	
-	eEnabledState sflag = State_Disabled;
-	if (value > 0) sflag = State_ExternalOn;
-	else if (value == 0) sflag = State_ExternalOff;
-	sflag = (mirrorDamage[client] & ~ENABLEDMASK_EXTERNAL) | sflag;
-	
-	globalPvP[client] = sflag;
-}
-
-//return true to continue
-static bool Notify_OnGlobalChanged(int client, eEnabledState& value) {
-	eEnabledState svalue = value;
-	Action result;
-	Call_StartForward(fwdGlobalChanged);
-	Call_PushCell(client);
-	Call_PushCell(globalPvP[client]);
-	Call_PushCellRef(svalue);
-	Call_Finish(result);
-	switch (result) {
-		case Plugin_Continue: return true;
-		case Plugin_Changed: { 
-			//only modify legal values (external*) in the ref value
-			eEnabledState changed = (value ^ svalue) & ENABLEDMASK_EXTERNAL;
-			value ^= changed;
-			return true;
-		}
-		default: return false;
-	}
-}
-//return true to continue
-static bool Notify_OnPairInvited(int requester, int requestee) {
-	Action result;
-	Call_StartForward(fwdPairInvited);
-	Call_PushCell(requester);
-	Call_PushCell(requestee);
-	Call_Finish(result);
-	switch (result) {
-		case Plugin_Continue: return true;
-		default: return false;
-	}
-}
-//return true to continue
-static bool Notify_OnPairChanged(int client1, int client2, bool changedOn) {
-	Action result;
-	Call_StartForward(fwdPairChanged);
-	Call_PushCell(client1);
-	Call_PushCell(client2);
-	Call_PushCell(changedOn);
-	Call_Finish(result);
-	switch (result) {
-		case Plugin_Continue: return true;
-		default: return false;
-	}
-}
-
-//endregion
-
-//region other trash
-
-static void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
-	for (int entity=1; entity<2048; entity++) {
-		if (IsValidEntity(entity) && (entity == client || (HasEntProp(entity, Prop_Send, "m_hOwnerEntity") && GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity")==client)) ) {
-			if (a==255) {
-				SetEntityRenderMode(entity, RENDER_NORMAL);
-			} else {
-				SetEntityRenderMode(entity, RENDER_TRANSALPHA);
-			}
-			SetEntityRenderColor(entity, r,g,b,a);
-		}
-	}
-}
-// this timer is kinda required for players that join late
-public Action Timer_PvPParticles(Handle timer) {
-	if (usePvPParticle) {
-		for (int client=1;client<=MaxClients;client++) {
-			if (Client_IsIngame(client) && IsPlayerAlive(client))
-				UpdatePvPParticles(client);
-		}
-	}
-	
-	return Plugin_Continue;
-}
-static void UpdatePvPParticles(int client) {
-	//head attachment points, sourcemod has no builtin to lookup so i just hardcode
-	// count from "(none)"==0 in HLMV
-	static int AttachPoint_PartyHat[10]={ 0,
-		/* scout */ 12, /* sniper */ 8, /* soldier */ 8,
-		/* demo  */  7, /* medic  */ 8, /* heavy   */ 8,
-		/* pyro  */  1, /* spy    */ 0, /* engi    */ 5,
-	};
-	int targets[MAXPLAYERS], tcount, tmask;
-	if (!Client_IsIngame(client)) return;
-	if (!TF2_IsPlayerInCondition(client, TFCond_Cloaked)) {
-		if (IsGlobalPvP(client)) {
-			for (int c=1;c<=MaxClients;c++) {
-				if (c != client && Client_IsIngameAuthorized(c)) targets[tcount++]=c;
-			}
-			tmask = -1; //visible to all
-		} else {
-			for (int c=1;c<=MaxClients;c++) {
-				if (c != client && pairPvP[client][c]) {
-					targets[tcount++]=c;
-					tmask |= (1<<(c-1));
-				}
-			}
-		}
-	}
-	
-	if (tmask != clientParticleAttached[client]) {
-		// if particles tunred off for some clients, we have to restart them
-		// we will also simply restart them for everyone if some new gets to see it
-		if (tmask==0 || (tmask ^ clientParticleAttached[client]) & clientParticleAttached[client]) {// check for "falling edges" -> was set and changed
-			PrintToServer("Stopped particles");
-			ParticleEffectStop(client);
-		}
-		// just restart the particle for everyone that can see it (will "blink" shadow if it was already playing)
-		if (tmask) {
-			float angles[3];
-			float zero[3];
-			float offset[3]={0.0, 0.0, PVP_PARTICLE_OFFSET};
-			GetClientEyeAngles(client, angles);
-			PrecacheParticleSystem(PVP_PARTICLE);
-			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,PATTACH_POINT_FOLLOW,AttachPoint_PartyHat[TF2_GetPlayerClass(client)],true);
-			TE_Send(targets, tcount);
-		}
-		clientParticleAttached[client] = tmask;
-	}
-}
-static void ParticleEffectStop(int entity) {
-	SetVariantString("ParticleEffectStop");
-	AcceptEntityInput(entity, "DispatchEffect");
-}
-
-//https://forums.alliedmods.net/showthread.php?t=75102
-static void TE_StartParticle(const char[] name, float pos[3], float offset[3], float angles[3], int parentTo=-1, ParticleAttachment_t attachType=PATTACH_INVALID, int attachPoint=-1, bool reset=false) {
-	static int table = INVALID_STRING_TABLE;
-	if (table == INVALID_STRING_TABLE) {
-		if ((table=FindStringTable("ParticleEffectNames"))==INVALID_STRING_TABLE)
-			ThrowError("Could not find string table for particles");
-	}
-	char tmp[64];
-	int count = GetStringTableNumStrings(table);
-	int index = INVALID_STRING_INDEX;
-	for (int i;i<count;i++) {
-		ReadStringTable(table, i, tmp, sizeof(tmp));
-		if (StrEqual(tmp, name)) {
-			index = i; break;
-		}
-//		PrintToServer("Particle: %s", tmp);
-	}
-	if (index == INVALID_STRING_INDEX) {
-		ThrowError("Could not find particle in string table");
-	}
-	TE_Start("TFParticleEffect");
-	TE_WriteFloat("m_vecOrigin[0]", pos[0]);
-	TE_WriteFloat("m_vecOrigin[1]", pos[1]);
-	TE_WriteFloat("m_vecOrigin[2]", pos[2]);
-	TE_WriteFloat("m_vecStart[0]", offset[0]);
-	TE_WriteFloat("m_vecStart[1]", offset[1]);
-	TE_WriteFloat("m_vecStart[2]", offset[2]);
-	TE_WriteVector("m_vecAngles", angles);
-	TE_WriteNum("m_iParticleSystemIndex", index);
-	if (parentTo!=-1) TE_WriteNum("entindex", parentTo);
-	if (attachType!=PATTACH_INVALID) TE_WriteNum("m_iAttachType", view_as<int>(attachType));
-	if (attachPoint!=-1) TE_WriteNum("m_iAttachmentPointIndex", attachPoint);
-	TE_WriteNum("m_bResetParticles", reset?1:0);
-}
-
-/**
- * Use -1 for haystacksize if the array is 0-terminated, -2 if it is negative-terminated
- */
-static int ArrayFind(any needle, const any[] haystack, int haystacksize=0) {
-	for (int i=0;i<haystacksize;i++) {
-		any val = haystack[i];
-		if (val == 0 && haystacksize == -1) break;
-		else if ((val&0x80000000) && haystacksize == -2) break; //negative signum bit for 2comp integers and ieee floats
-		else if (val == needle) return i;
-	}
-	return -1;
-}
-
-/**
- * if the entity is a client, return the client. otherwise try to resolve m_hBuilder
- * @return the player associated with this entity or INVALID_ENT_REFERENCE if none
- */
-static int GetPlayerEntity(int entity) {
-	int tmp;
-	if (1<=entity<=MaxClients)
-		return entity;
-	else if (HasEntProp(entity, Prop_Send, "m_hBuilder") && 1 <= (tmp=GetEntPropEnt(entity, Prop_Send, "m_hBuilder")) <= MaxClients)
-		//obviously, this get's the engineer that built this entity as building
-		return tmp;
-	else if (HasEntProp(entity, Prop_Data, "m_hPlayer") && 1 <= (tmp=GetEntPropEnt(entity, Prop_Data, "m_hPlayer")) <= MaxClients)
-		//this is the prop to look at for vehicles
-		return tmp;
-	else
-		return INVALID_ENT_REFERENCE;
-}
-
-static bool IsEntityZombie(const char[] classname) {
-	return StrEqual(classname,"tf_zombie");
-}
-static bool IsEntityBoss(const char[] classname) {
-	return (StrEqual(classname, "merasmus") || StrEqual(classname, "headless_hatman") || StrEqual(classname, "eyeball_boss"));
-}
-static bool IsEntityBuilding(const char[] classname) {
-	return (StrEqual(classname, "obj_sentrygun") || StrEqual(classname, "obj_dispenser") || StrEqual(classname, "obj_teleporter"));
-}
-
-static int GetPlayerDamageSource(int attacker, int inflictor) {
-	int source;
-	if (IsValidEntity(attacker) && 1 <= attacker <= MaxClients) 
-		return attacker;
-	// Sometimes the attacker won't be a player
-	// try to resolve the attacker first:
-	//  if someone shoots a vehicle, vehicle redirects the damage to the driver with the vehicle as inflictor
-	else if (IsValidEntity(attacker) && 1 <= (source = GetPlayerEntity(attacker)) <= MaxClients)
-		// if that's not a player, we try to get the damage source from the attacker entity. this will mostly be npcs tho
-		return source;
-	else if (IsValidEntity(inflictor) && 1 <= (source = GetPlayerEntity(inflictor)) <= MaxClients) 
-		// so we try to determin the player damage source from the inflictor. mostly projectiles
-		return source;
-	else
-		// if we still couldn't find a player, we give up
-		return INVALID_ENT_REFERENCE;
 }
 
 //endregion
