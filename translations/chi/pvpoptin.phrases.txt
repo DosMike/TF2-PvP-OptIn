@@ -1,0 +1,240 @@
+"Phrases"
+{
+	"Plugin now active"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 插件已激活！安全出行！"
+	}
+	"Plugin now inactive"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 插件已关闭！开始正常屠杀！"
+	}
+	"SettingsMenuTitle"
+	{
+		"chi"	"PvP选项\n \n'镜像伤害' 假如目标不是PvP状态，攻击者会受到镜像伤害。\n'嘲讽杀我' 允许其他玩家无视PvP状态嘲讽击杀你。"
+	}
+	"SettingsMenuGlobal"
+	{
+		"chi"	"全局PvP"
+	}
+	"SettingsMenuIgnorePair"
+	{
+		"chi"	"忽略对决PvP"
+	}
+	"SettingsMenuMirrorDamage"
+	{
+		"chi"	"镜像伤害"
+	}
+	"SettingsMenuTauntKills"
+	{
+		"chi"	"嘲讽杀我"
+	}
+	"Pick player for pvp"
+	{
+		"chi"	"选择一个玩家来PvP"
+	}
+	"Bots can not use pair pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 抱歉，bots不能使用 {azure}对决PvP{default} ！"
+	}
+	"Someone disengaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 脱离了与你的PvP"
+	}
+	"You disengaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你已经脱离了与 {1} 的PvP"
+	}
+	"You disengaged all pair pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{defaut} 你脱离了全部的 {azure}对决PvP{default} 。"
+	}
+	"You engaged pair pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你和 {1} 加入了对决PvP。"
+	}
+	"You are both global pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你们现在都在 {goldenrod}全局PvP{default}"
+	}
+	"Already requested pvp with"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你已经发送过了PvP请求给 {1}"
+	}
+	"There is a pending request with menus"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 这个玩家已有正在处理的PvP请求"
+	}
+	"Someone cancelled pvp request for another"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 取消了请求去邀请别人"
+	}
+	"You cancelled pvp request"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你取消了你之前与 {1} 的请求"
+	}
+	"Someone requested pvp, confirm"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 想要和你PvP，使用 {darkgray}/pvp {2}{default} 来进行确认"
+	}
+	"You requested pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你发送了PvP请求给 {1} 。"
+	}
+	"Your pvp request was declined"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你与 {1} 的 {azure}对决PvP{default} 请求被拒绝。"
+	}
+	"You declined multiple pvp requests"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你已拒绝与 {1} 的 {azure}对决PvP{default} 的请求。"
+	}
+	"You declined single pvp request"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你已拒绝 {1} 的{azure}对决PvP{default} 的请求。"
+	}
+	"Last pair pvp request too recent"
+	{
+		"#format" "{1:d}"
+		"chi"	"{darkviolet}[PvP]{default} 请等待 {1} 秒后再发送更多的 {azure}对决PvP{default} 请求。"
+	}
+	"You have been banned from pvp"
+	{
+		"#format" "{1:i},{2:s}"
+		"chi"	"{darkviolet}[PvP]{default} 你已被PvP封禁，时间为 {1} 分钟（原因：{2}）"
+	}
+	"Spawn Killing is not allowed"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 堵出生点是不允许的，别做了！"
+	}
+	"Entered global pvp too recently"
+	{
+		"#format" "{1:d}"
+		"chi"	"{darkviolet}[PvP]{default} 你必须等待 {1} 秒后才能离开 {goldenrod}全局PvP{default}。"
+	}
+	"Global pvp state on line1"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你设置 {goldenrod}全局PvP {limegreen}开启{default}"
+	}
+	"Global pvp state on line2"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 其他有 {goldenrod}全局PvP{default} 的玩家可以攻击你和被你攻击。"
+	}
+	"Global pvp state off line1"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你设置 {goldenrod}全局PvP {crimson}关闭{default}"
+	}
+	"Global pvp state off line2"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 享受和平吧，你只会通过 {azure}对决PvP{default} 受到伤害。"
+	}
+	"Hey there's also pair pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你可以使用 {darkgray}/pvp 玩家名字{default} 来请求{azure}对决PvP{default}。"
+	}
+	"You are ignoring pair pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 玩家不再能发送 {azure}对决PvP{default} 请求给你了。"
+	}
+	"You are allowing pair pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 玩家可以继续发送 {azure}对决PvP{default} 请求给你了。"
+	}
+	"Use command again to toggle ignore"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 再次使用指令来忽略更多的请求"
+	}
+	"Mirror Damage Enabled"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 现在你对非PvP玩家造成的伤害会镜像反弹"
+	}
+	"Mirror Damage not Disabled, Forced"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 某种力量强制了镜像伤害。在此情况下镜像伤害会保持开启。"
+	}
+	"Mirror Damage Disabled"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 对非PvP玩家造成的伤害不再会镜像"
+	}
+	"Taunt Kills Enabled"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 其他玩家现在可以嘲讽击杀你"
+	}
+	"Taunt Kills Disabled"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你不会再被嘲讽击杀了"
+	}
+	"Someone forced map pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 强制设定 {goldenrod}全局PvP{default} 于此地图"
+	}
+	"You forced map pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你强制设定 {goldenrod}全局PvP{default} 于此地图"
+	}
+	"Someone reset map pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 重置 {goldenrod}全局PvP{default} 回个人设定"
+	}
+	"You reset map pvp"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 你重置所有人 {goldenrod}全局PvP{default} 的设定"
+	}
+	"Someone forced your global pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 强制你进入 {goldenrod}全局PvP{default}"
+	}
+	"You forced someones global pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你强制 {1} 进入 {goldenrod}全局PvP{default}"
+	}
+	"Someone reset your global pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 重置了你的 {goldenrod}全局PvP{default} 回到个人设定"
+	}
+	"You reset someones global pvp"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的 {goldenrod}全局PvP{default}"
+	}
+	"Someone forced your mirror damage"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 强制你镜像伤害"
+	}
+	"You forced someones mirror damage"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你强制 {1} 开启镜像伤害"
+	}
+	"Someone reset your mirror damage"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} {1} 重置了你的镜像伤害回到个人设定"
+	}
+	"You reset someones mirror damage"
+	{
+		"#format" "{1:N}"
+		"chi"	"{darkviolet}[PvP]{default} 你重置了 {1} 的镜像伤害"
+	}
+	"Healing only allowed in global PvP"
+	{
+		"chi"	"{darkviolet}[PvP]{default} 只有当你们都是 {goldenrod}全局PvP{default} 状态下才可以治疗玩家！"
+	}
+
+}

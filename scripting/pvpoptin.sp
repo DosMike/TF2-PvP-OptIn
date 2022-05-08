@@ -12,7 +12,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w15a"
+#define PLUGIN_VERSION "22w18a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -90,16 +90,16 @@ float clientInvalidHealNotifLast[MAXPLAYERS+1];
 public void OnPluginStart() {
 	LoadTranslations("common.phrases");
 	LoadTranslations("pvpoptin.phrases");
-	
+
 	Plugin_SetupDHooks();
-	
+
 	delete RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
 	delete RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
 	delete RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
 	delete RegClientCookie(COOKIE_TAUNTKILL, "Client is fine with being taunt-killed for funnies", CookieAccess_Private);
 	delete RegClientCookie(COOKIE_CONDITIONS, "Client is fine with being jarated, etc for funnies", CookieAccess_Private);
 	delete RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp> <Reason> if banned from pvp", CookieAccess_Private);
-	
+
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
 	RegConsoleCmd("sm_rejectpvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
@@ -110,12 +110,12 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
 	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> [<minutes> [reason]] - Ban a player from taking part in pvp");
 	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_UNBAN, "Usage: <name|userid> - Unban a player from pvp");
-	
+
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
-	
+
 	HookEvent("post_inventory_application", OnInventoryApplicationPost);
-	
+
 	HookEvent("teamplay_waiting_begins", OnRoundStateChange);
 	HookEvent("teamplay_waiting_ends", OnRoundStateChange);
 	HookEvent("teamplay_round_start", OnRoundStateChange);
@@ -126,11 +126,11 @@ public void OnPluginStart() {
 	HookEvent("teamplay_game_over", OnRoundStateChange);
 	HookEvent("teamplay_round_win", OnRoundStateChange);
 	HookEvent("teamplay_round_stalemate", OnRoundStateChange);
-	
+
 	Plugin_SetupConvars();
-	
+
 	Plugin_SetupForwards();
-	
+
 	SetCookieMenuItem(HandleCookieMenu, 0, "PvP");
 	bool hotload;
 	for (int i=1;i<=MaxClients;i++) {
@@ -180,7 +180,7 @@ public void OnMapEnd() {
 
 public void OnMapStart() {
 	UpdateActiveState(GameState_PreGame);
-	
+
 //	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
 	PrecacheParticleSystem(PVP_PARTICLE);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
@@ -424,19 +424,19 @@ public Action Command_BanPvP(int client, int args) {
 		ReplyToCommand(client, "Usage: sm_banpvp <#user|name> [<minutes> [Reason]]");
 		return Plugin_Handled;
 	}
-	
+
 	int len, next_len;
 	char argstring[256];
 	GetCmdArgString(argstring, sizeof(argstring));
-	
+
 	char arg[65];
 	len = BreakString(argstring, arg, sizeof(arg));
-	
+
 	int target = FindTarget(client, arg, true);
 	if (target == -1) {
 		return Plugin_Handled;
 	}
-	
+
 	if (args == 1) {
 		int restTime = clientPvPBannedUntil[target]-GetTime();
 		if (restTime>0) {
@@ -446,7 +446,7 @@ public Action Command_BanPvP(int client, int args) {
 		}
 		return Plugin_Handled;
 	}
-	
+
 	char stime[12];
 	char reason[128];
 	if ((next_len = BreakString(argstring[len], stime, sizeof(stime))) != -1) {
@@ -459,8 +459,8 @@ public Action Command_BanPvP(int client, int args) {
 	if (time <= 0) {
 		time = 1025280; //2 years
 	}
-	
-	
+
+
 	BanClientPvP(client, target, time, reason);
 
 	return Plugin_Handled;
@@ -469,15 +469,15 @@ public Action Command_UnbanPvP(int client, int args) {
 	if (GetCmdArgs() < 1) {
 		ReplyToCommand(client, "Usage: sm_unbanpvp <#user|name>");
 	}
-	
+
 	char arg[65];
 	GetCmdArgString(arg, sizeof(arg));
-	
+
 	int target = FindTarget(client, arg, true);
 	if (target == -1) {
 		return Plugin_Handled;
 	}
-	
+
 	BanClientPvP(client, target, 0, "");
 
 	return Plugin_Handled;
@@ -487,13 +487,13 @@ public Action Command_ForceRequest(int client, int args) {
 	char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
 	int target[1], matches, fakesource, faketarget;
 	bool tn_is_ml;
-	
+
 	if (GetCmdArgs() != 2) {
 		GetCmdArg(0, pattern, sizeof(pattern));
 		ReplyToCommand(client, "Usage: %s <requester> <requestee>", pattern);
 		return Plugin_Handled;
 	}
-	
+
 	GetCmdArg(1, pattern, sizeof(pattern));
 	matches = ProcessTargetString(pattern, client, target, 1, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_IMMUNITY|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_MULTI, tname, sizeof(tname), tn_is_ml);
 	if (matches <= 0) {
@@ -510,7 +510,7 @@ public Action Command_ForceRequest(int client, int args) {
 	} else {
 		faketarget = target[0];
 	}
-	
+
 	if (fakesource == faketarget) {
 		ReplyToCommand(client, "%t", "Requester is Requestee");
 	} else {
@@ -649,7 +649,7 @@ public Action Command_Mirror(int client, int args) {
 		GetCmdArg(2,pattern, sizeof(pattern));
 		bool force = StringToInt(pattern) != 0;
 		GetCmdArg(1,pattern, sizeof(pattern));
-		
+
 		int target[MAXPLAYERS];
 		bool tn_is_ml;
 		int matches = ProcessTargetString(pattern, client, target, MAXPLAYERS, COMMAND_FILTER_CONNECTED|COMMAND_FILTER_NO_BOTS|COMMAND_FILTER_NO_IMMUNITY, tname, sizeof(tname), tn_is_ml);
@@ -728,7 +728,7 @@ static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 	} else if (pairPvPrequest[requester]==requestee) {
 		CPrintToChat(requester, "%t", "Already requested pvp with", requestee);
 	} else if (pairPvPRequestMenu && ArrayFind(requestee, pairPvPrequest, sizeof(pairPvPrequest))>0) {
-		//menus are kinda iffy 
+		//menus are kinda iffy
 		CPrintToChat(requester, "%t", "There is a pending request with menus");
 	} else {
 		if (Notify_OnPairInvited(requester, requestee)) {
@@ -783,7 +783,7 @@ static void VotePairPvPRequest(int requester, int requestee) {
 	vote.SetTarget(requestee);
 	int clients[1];clients[0]=requestee;
 	vote.DisplayVote(clients, 1, PvP_PAIRVOTE_DISPLAYTIME, VOTEFLAG_NO_REVOTES);
-	
+
 	ForceEndNativeVote(requester);
 	any vdata[4];
 	vdata[0] = vote;
@@ -840,7 +840,7 @@ static void MenuPairPvPRequest(int requester, int requestee) {
 	Format(buffer, sizeof(buffer), "%T", "No", requestee);
 	menu.AddItem("1", buffer);
 	menu.Display(requestee, PvP_PAIRVOTE_DISPLAYTIME);
-	
+
 	any vdata[3];
 	vdata[0] = menu;
 	vdata[1] = requester;
@@ -890,12 +890,12 @@ static bool SetGlobalPvP(int client, bool pvp) {
 	eEnabledState newState;
 	if (pvp) newState |= State_Enabled;
 	else newState &=~ State_Enabled;
-	
+
 	if (Notify_OnGlobalChanged(client, newState) && newState != globalPvP[client]) {
 		globalPvP[client] = newState;
 		pvp = (newState & State_Enabled) == State_Enabled;
 	} else return false; //nothing changed, what do you want? :D
-	
+
 	if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null) {
 		char value[2]="0";
 		if (pvp) value[0]='1';
@@ -1001,7 +1001,7 @@ int CanClientsPvP(int client1, int client2) {
 	return canpvp;
 	//duels should be checked here, can't real tho, that's GC stuff
 }
-/** 
+/**
  * admin < 0 to "reload", time and reason will be ignored
  * time <= 0 to unban, reason will be ignored
  * @param time in minutes
@@ -1082,7 +1082,7 @@ static void SDKHookClient(int client) {
 public Action OnZombieTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
 	if (!isActive)
 		return Plugin_Continue;
-	
+
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
 	if (1<=source<=MaxClients && (pvaPlayers&PvA_ZOMBIES)==PvA_Zombies_Ignored) {
@@ -1093,7 +1093,7 @@ public Action OnZombieTakeDamage(int victim, int &attacker, int &inflictor, floa
 public Action OnBossTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
 	if (!isActive)
 		return Plugin_Continue;
-	
+
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
 	if (1<=source<=MaxClients && (pvaPlayers&PvA_BOSSES)==PvA_Bosses_Ignored) {
@@ -1104,12 +1104,12 @@ public Action OnBossTakeDamage(int victim, int &attacker, int &inflictor, float 
 public Action OnBuildingTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
 	if (!isActive)
 		return Plugin_Continue;
-	
+
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
 	if (!Client_IsValid(source))
 		return Plugin_Continue;
-	
+
 	int owner = GetPlayerEntity(victim);
 	if (Client_IsValid(owner) && !CanClientsPvP(source, owner)) {
 		damage = 0.0;
@@ -1122,7 +1122,7 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	// but stray projectiles / spray might still hit them
 	if (!isActive)
 		return Plugin_Continue;
-	
+
 	int pvpGrant;
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
@@ -1148,7 +1148,7 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 		}
 		return Plugin_Continue; //pvp is on, go nuts
 	}
-		
+
 	//block damage on victim
 	damage = 0.0;
 	ScaleVector(damageForce, 0.0);
@@ -1158,13 +1158,13 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 	//tracking spawnkilling here, so only react to human attackers and when the victim died
 	if (!isActive)
 		return;
-	if (!Client_IsIngame(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0) {
+	if (!Client_IsIngame(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0 || attacker == victim) {
 		return;
 	}
 	if (!IsFakeClient(victim)) { //again, bots don't leave pvp
 		clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
 	}
-	
+
 	if (spawnKill_maxTime > 0.01 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot >= 0.0 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
 		float timeAlive = GetGameTime() - clientSpawnTime[victim];
 		if (timeAlive > spawnKill_maxTime) return; //idk, just bad?
@@ -1172,7 +1172,7 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 		if (spawnKill_maxIncreaseRoot > 0.0001)
 			score += RoundToNearest(Pow((1.0-(timeAlive/spawnKill_maxTime))*spawnKill_maxIncreaseRoot,2.0)); //quadratic fall off
 		clientSpawnKillScore[attacker] += score;
-		
+
 		if (clientSpawnKillScore[attacker] >= spawnKill_threashold) { //5 near instant kills
 			BanClientPvP(0, attacker, spawnKill_banTime, "Spawn Killing [Automatic]");
 		} else if (score > 0) {
@@ -1184,7 +1184,7 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 public void OnClientSpawnPost(int client) {
 	if (GetClientTeam(client)<=1) return;
 	clientSpawnTime[client] = GetGameTime();
-	
+
 	if (IsFakeClient(client)) return;
 	clientLatestPvPAction[client] = GetClientTime(client)-PvP_DISENGAGE_COOLDOWN;
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
@@ -1202,13 +1202,13 @@ public void OnInventoryApplicationPost(Event event, const char[] name, bool dont
 public void TF2_OnConditionAdded(int client, TFCond condition) {
 	int provider, at;
 	if (!isActive) return;
-	
+
 	//hide particle effect when cloaking
 	if (usePvPParticle) {
 		if (condition == TFCond_Cloaked) ParticleEffectStop(client);
 		if (condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
 	}
-	
+
 	if ((at = ArrayFind(condition, pvpConditions, sizeof(pvpConditions)))<0)
 		return; //not a condition we manage
 	if ((provider = TF2Util_GetPlayerConditionProvider(client, condition))<=0)
