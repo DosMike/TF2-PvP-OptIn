@@ -12,7 +12,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w15a"
+#define PLUGIN_VERSION "22w18a"
 #pragma newdecls required
 #pragma semicolon 1
 
