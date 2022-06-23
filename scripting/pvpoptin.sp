@@ -12,7 +12,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w18a"
+#define PLUGIN_VERSION "22w25a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -72,6 +72,12 @@ float clientSpawnTime[MAXPLAYERS+1]; //game time the client last spawned (to all
 int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slowly decay over time, count up base on client alive time
 bool clientInvalidHealNotif[MAXPLAYERS+1];
 float clientInvalidHealNotifLast[MAXPLAYERS+1];
+int togglePvPAction; //what to do when a player toggles global pvp, see TGACT_*
+
+#define TGACT_IN_RESPAWN 1
+#define TGACT_IN_KILL 2
+#define TGACT_OUT_RESPAWN 4
+#define TGACT_OUT_KILL 8
 
 #define COOKIE_GLOBALPVP "enableGlobalPVP"
 #define COOKIE_IGNOREPVP "ignorePairPVP"
@@ -101,6 +107,7 @@ public void OnPluginStart() {
 	delete RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp> <Reason> if banned from pvp", CookieAccess_Private);
 
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
+	RegConsoleCmd("sm_pvpinvite", Command_TogglePvP, "Usage: [name|userid] - Explicitly request pair PvP. Will open a pick player menu if no name is given");
 	RegConsoleCmd("sm_stoppvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
 	RegConsoleCmd("sm_rejectpvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
 	RegConsoleCmd("sm_declinepvp", Command_StopPvP, "Decline pair PvP requests, end all pair PvP or toggle pair PvP ignore state if you're not in pair PvP");
@@ -383,7 +390,7 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 		char info[32];
 		menu.GetItem(param2, info, sizeof(info));
 		if(StrEqual(info, "globalpvp")) {
-			SetGlobalPvP(param1, !(globalPvP[param1]&State_Enabled));
+			SetGlobalPvP(param1, !(globalPvP[param1]&State_Enabled), true);
 		}
 		if(StrEqual(info, "ignorepvp")) {
 			SetPairPvPIgnored(param1, !pairPvPignored[param1]);
@@ -524,15 +531,14 @@ public Action Command_TogglePvP(int client, int args) {
 		return Plugin_Handled;
 	}
 	if (GetCmdArgs()==0) {
-		bool enterPvP = !(globalPvP[client]&State_Enabled);
-		//timeLeft = cooldown - time spent in pvp
-		float timeLeft = PvP_DISENGAGE_COOLDOWN - (GetClientTime(client) - clientLatestPvPAction[client]);
-		if (!enterPvP && timeLeft > 0.0) {
-			CPrintToChat(client, "%t", "Entered global pvp too recently", RoundToCeil(timeLeft));
+		char buffer[32];
+		GetCmdArg(0, buffer, sizeof(buffer));
+		if (StrContains(buffer, "invite")>=0) {
+			// used /pvpinvite, so the player does not want to toggle. let them pick a player
+			ShowPlayerPairPvPMenu(client);
 			return Plugin_Handled;
 		}
-		if (enterPvP) clientLatestPvPAction[client] = GetClientTime(client);
-		SetGlobalPvP(client, enterPvP);
+		SetGlobalPvP(client, !(globalPvP[client]&State_Enabled), true);
 	} else {
 		char pattern[MAX_NAME_LENGTH+1], tname[MAX_NAME_LENGTH+1];
 		GetCmdArgString(pattern, sizeof(pattern));
@@ -885,7 +891,18 @@ void PrintGlobalPvpState(int client) {
 	CPrintToChat(client, "%t", "Hey there's also pair pvp");
 }
 //return false if cancelled
-static bool SetGlobalPvP(int client, bool pvp) {
+static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
+	bool enterPvP = pvp && !(globalPvP[client]&State_Enabled);
+	if (checkCooldown) {
+		//timeLeft = cooldown - time spent in pvp
+		float timeLeft = PvP_DISENGAGE_COOLDOWN - (GetClientTime(client) - clientLatestPvPAction[client]);
+		if (!enterPvP && timeLeft > 0.0) {
+			CPrintToChat(client, "%t", "Entered global pvp too recently", RoundToCeil(timeLeft));
+			return false;
+		}
+		if (enterPvP) clientLatestPvPAction[client] = GetClientTime(client);
+	}
+	
 	Handle cookie;
 	eEnabledState newState;
 	if (pvp) newState |= State_Enabled;
@@ -895,6 +912,15 @@ static bool SetGlobalPvP(int client, bool pvp) {
 		globalPvP[client] = newState;
 		pvp = (newState & State_Enabled) == State_Enabled;
 	} else return false; //nothing changed, what do you want? :D
+	
+	//potential punishment for toggling
+	if (pvp) {
+		if ((togglePvPAction & TGACT_IN_KILL)!=0) ForcePlayerSuicide(client);
+		else if ((togglePvPAction & TGACT_IN_RESPAWN)!=0) TF2_RespawnPlayer(client);
+	} else {
+		if ((togglePvPAction & TGACT_OUT_KILL)!=0) ForcePlayerSuicide(client);
+		else if ((togglePvPAction & TGACT_OUT_RESPAWN)!=0) TF2_RespawnPlayer(client);
+	}
 
 	if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null) {
 		char value[2]="0";

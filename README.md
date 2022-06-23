@@ -84,6 +84,11 @@ Parameters in order are: Minimum Penalty, Protection Time [s], Maximum Penalty, 
 
 ![image](./spawnProtectionParams.png)
 
+**`pvp_toggle_action "0"`
+Decides what to do when a player toggles global PvP. Set this convar to the sum of flags.
+Flags: 1 - Respawn when turning on, 2 - Kill when turning on, 4 - Respawn when turning off, 8 - Kill when turning off.
+If you set 1 or 2, the cooldown for leaving will not apply until the player was tagged by shooting or getting shot.
+
 ### Commands:
 
 **`/pvp`**   
