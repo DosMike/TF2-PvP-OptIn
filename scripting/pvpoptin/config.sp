@@ -28,6 +28,7 @@ static ConVar cvar_BuildingsVersusBosses;
 static ConVar cvar_PlayersVersusZombies;
 static ConVar cvar_PlayersVersusBosses;
 static ConVar cvar_SpawnKillProperties;
+static ConVar cvar_ToggleAction;
 
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
@@ -58,6 +59,7 @@ void Plugin_SetupConvars() {
 	cvar_ColorGlobalOffBlu = CreateConVar( "pvp_playertaint_bluoff", "255 255 225", "Color for players on BLU with global PvP disabled. Argument is R G B A from 0 to 255 or web color #RRGGBBAA. Alpha is optional.", _);
 	cvar_UsePvPParticle = CreateConVar( "pvp_playerparticle_enable", "1", "Play a particle on players that can be PvPed. Playes for both global and pair PvP", _, true, 0.0, true, 1.0);
 	cvar_SpawnKillProperties = CreateConVar( "pvp_spawnkill_protection", "15 5 35 100 60", "Four parameters to configure spawn protection. min penalty, protection time, max penalty, threashold, timeout. Empty to disable, invalid values will use default.");
+	cvar_ToggleAction = CreateConVar( "pvp_toggle_action", "0", "Flags for what to do when global pvp is toggled (set to sum): 1 - Respawn when entering, 2 - Kill when entering, 4 - Respawn when leaving, 8 - Kill when leaving", _, true, 0.0, true, 16.0);
 	//hook cvars and load current values
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
@@ -75,6 +77,7 @@ void Plugin_SetupConvars() {
 	hookAndLoadCvar(cvar_ColorGlobalOffBlu, OnCVarChanged_PlayerTaint);
 	hookAndLoadCvar(cvar_UsePvPParticle, OnCVarChanged_UsePvPParticle);
 	hookAndLoadCvar(cvar_SpawnKillProperties, OnCVarChanged_SpawnKillProperties);
+	hookAndLoadCvar(cvar_ToggleAction, OnCVarChanged_ToggleAction);
 	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
 	AutoExecConfig();
 }
@@ -284,4 +287,9 @@ public void OnCVarChanged_SpawnKillProperties(ConVar convar, const char[] oldVal
 	spawnKill_threashold = limit; //maximum score before banning
 	spawnKill_banTime = btime; //time to ban for
 }
+
+public void OnCVarChanged_ToggleAction(ConVar convar, const char[] oldValue, const char[] newValue) {
+	togglePvPAction = (convar.IntValue & 0x0F);
+}
+
 //enregion
