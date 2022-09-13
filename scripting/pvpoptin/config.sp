@@ -29,6 +29,8 @@ static ConVar cvar_PlayersVersusZombies;
 static ConVar cvar_PlayersVersusBosses;
 static ConVar cvar_SpawnKillProperties;
 static ConVar cvar_ToggleAction;
+static ConVar cvar_PassiveRegenHP;
+static ConVar cvar_PassiveRegenAmmo;
 
 static void hookAndLoadCvar(ConVar cvar, ConVarChanged handler) {
 	char def[20], val[20];
@@ -60,6 +62,10 @@ void Plugin_SetupConvars() {
 	cvar_UsePvPParticle = CreateConVar( "pvp_playerparticle_enable", "1", "Play a particle on players that can be PvPed. Playes for both global and pair PvP", _, true, 0.0, true, 1.0);
 	cvar_SpawnKillProperties = CreateConVar( "pvp_spawnkill_protection", "15 5 35 100 60", "Four parameters to configure spawn protection. min penalty, protection time, max penalty, threashold, timeout. Empty to disable, invalid values will use default.");
 	cvar_ToggleAction = CreateConVar( "pvp_toggle_action", "0", "Flags for what to do when global pvp is toggled (set to sum): 1 - Respawn when entering, 2 - Kill when entering, 4 - Respawn when leaving, 8 - Kill when leaving", _, true, 0.0, true, 16.0);
+	cvar_PassiveRegenHP = CreateConVar( "pvp_regen_hprate", "0.0", "How fast to regenerate health in HP/s, <= 0.0 to disable", _, true, 0.0);
+	cvar_PassiveRegenAmmo = CreateConVar( "pvp_regen_ammorate", "0.0", "How fast to regenerate ammo/metal in %/s, <= 0.0 to disable. Will give a minimum of 10% increments", _, true, 0.0);
+	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
+	AutoExecConfig();
 	//hook cvars and load current values
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
@@ -78,8 +84,8 @@ void Plugin_SetupConvars() {
 	hookAndLoadCvar(cvar_UsePvPParticle, OnCVarChanged_UsePvPParticle);
 	hookAndLoadCvar(cvar_SpawnKillProperties, OnCVarChanged_SpawnKillProperties);
 	hookAndLoadCvar(cvar_ToggleAction, OnCVarChanged_ToggleAction);
-	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
-	AutoExecConfig();
+	hookAndLoadCvar(cvar_PassiveRegenHP, OnCVarChanged_PassiveRegenHP);
+	hookAndLoadCvar(cvar_PassiveRegenAmmo, OnCVarChanged_PassiveRegenAmmo);
 }
 
 //region cvar handling
@@ -290,6 +296,14 @@ public void OnCVarChanged_SpawnKillProperties(ConVar convar, const char[] oldVal
 
 public void OnCVarChanged_ToggleAction(ConVar convar, const char[] oldValue, const char[] newValue) {
 	togglePvPAction = (convar.IntValue & 0x0F);
+}
+
+public void OnCVarChanged_PassiveRegenHP(ConVar convar, const char[] oldValue, const char[] newValue) {
+	regenHPRate = convar.FloatValue;
+}
+
+public void OnCVarChanged_PassiveRegenAmmo(ConVar convar, const char[] oldValue, const char[] newValue) {
+	regenAmmoRate = convar.FloatValue;
 }
 
 //enregion

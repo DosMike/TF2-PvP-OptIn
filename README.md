@@ -98,6 +98,9 @@ Toggle global PvP on or off
 Invite to, accept and end pair PvP with another player.
 If the player was not found, get a menu.
 
+**`/pvpinvite [player]`**
+Forces the pick player menu if no argument is given, haves like /pvp otherwise
+
 **`/stoppvp`**   
 End pair PvP with all players.
 If no pair PvP running, toggle ignore state.
