@@ -13,7 +13,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w37a"
+#define PLUGIN_VERSION "22w41a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -37,6 +37,7 @@ public Plugin myinfo = {
 #define PvP_PAIRREQUEST_COOLDOWN 15.0
 #define PvP_PAIRVOTE_DISPLAYTIME 10
 
+#define PVP_HEALBLOCK_BOLT "weapons/medi_shield_burn_01.wav"
 //#define PVP_PARTICLE "pvpoptin_indicator"
 #define PVP_PARTICLE "mark_for_death"
 // the offset should be 0.0 for the custom particle, 16.0 is good for marked for death
@@ -198,6 +199,7 @@ public void OnMapStart() {
 
 //	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
 	PrecacheParticleSystem(PVP_PARTICLE);
+	PrecacheSound(PVP_HEALBLOCK_BOLT);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 	CreateTimer(1.0, Timer_EverySecond, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
@@ -1282,9 +1284,9 @@ void PassiveRegen() {
 	for (int client=1;client<=MaxClients;client++) {
 		//only regen players outside of pvp
 		if (!IsClientInGame(client) || IsFakeClient(client) || GetClientTeam(client)<2 || !IsPlayerAlive(client) || IsGlobalPvP(client) || HasAnyPairPvP(client))
-			return;
+			continue;
 		if (GetGameTime()-regenLastAction[client] < 5.0)
-			return; //recently did something like shoot
+			continue; //recently did something like shoot
 		//heal
 		Entity_AddHealth(client, heal);
 		//add ammo and metal for all weapons

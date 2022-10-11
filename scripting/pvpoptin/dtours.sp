@@ -26,6 +26,8 @@ static DHookSetup hdl_CObjectSentrygun_FoundTarget;
 static bool detoured_CObjectSentrygun_FoundTarget;
 static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
 static bool detoured_CWeaponMedigun_AllowedToHealTarget;
+static DHookSetup hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer;
+static bool detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer;
 
 void Plugin_SetupDHooks() {
 	GameData pvpfundata = new GameData("pvpoptin.games");
@@ -43,6 +45,7 @@ void Plugin_SetupDHooks() {
 		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
 		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
 		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun_AllowedToHealTarget");
+		hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookCreateFromConf(pvpfundata, "CTFProjectile_HealingBolt_ImpactTeamPlayer");
 		delete pvpfundata;
 	}
 }
@@ -93,6 +96,11 @@ void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CWeaponMedigun::AllowedToHealTarget(CBaseEntity*). Medic can grief PvP duels!");
 	}
+	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && !detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer) {
+		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookEnableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
+	} else {
+		PrintToServer("Could not hook CWeaponMedigun::AllowedToHealTarget(CBaseEntity*). Medic can grief PvP duels!");
+	}
 }
 void DHooksDetach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
@@ -113,6 +121,8 @@ void DHooksDetach() {
 		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && detoured_CWeaponMedigun_AllowedToHealTarget)
 		detoured_CWeaponMedigun_AllowedToHealTarget ^= DHookDisableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
+	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer)
+		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer ^= DHookDisableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
 }
 
 // this dhook simply makes bots ignore players that dont want to pvp
@@ -228,11 +238,28 @@ public MRESReturn Detour_CWeaponMedigun_AllowedToHealTarget(int weapon, DHookRet
 	if (!(1<=medic<=MaxClients))
 		return MRES_Ignored; //no owner?!
 	
-	if (IsGlobalPvP(medic) && IsGlobalPvP(target))
-		return MRES_Ignored; //healing is allowed in global pvp
+	if (IsGlobalPvP(medic) == IsGlobalPvP(target))
+		return MRES_Ignored; //healing is allowed if both are (not) in global pvp at the same time
 	
 	clientInvalidHealNotif[medic] = true;
 	hReturn.Value = false;
+	return MRES_Supercede;
+}
+
+public MRESReturn Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer(int healingBolt, DHookParam hParams) {
+	int weapon = GetEntPropEnt(healingBolt, Prop_Send, "m_hOriginalLauncher");
+	if (!IsValidEntity(weapon)) return MRES_Ignored; //no weapon?
+	int medic = GetEntPropEnt(weapon, Prop_Send, "m_hOwnerEntity");
+	int target = DHookGetParam(hParams, 1);
+	
+	if (!(1<=medic<=MaxClients) || !IsClientInGame(medic) || !(1<=target<=MaxClients))
+		return MRES_Supercede; //projectile owner dced until it hit, or target not a player, dont heal
+	
+	if (IsGlobalPvP(medic) == IsGlobalPvP(target))
+		return MRES_Ignored; //healing is allowed if both are (not) in global pvp at the same time
+	
+	EmitSoundToClient(medic, PVP_HEALBLOCK_BOLT, SOUND_FROM_PLAYER);
+	clientInvalidHealNotif[medic] = true;
 	return MRES_Supercede;
 }
 
