@@ -50,23 +50,23 @@ bool pvpConditionTrivial[] = { //true for conditions in pvpConditions that do no
 	false
 };
 
-enum eGameState(<<=1) {
-	GameState_Never=0,
-	GameState_Waiting=1,
-	GameState_PreGame,
-	GameState_Running,
-	GameState_Overtime,
-	GameState_SuddenDeath,
-	GameState_GameOver
+enum eGameState {
+	GameState_Never = 0,
+	GameState_Waiting = (1<<0),
+	GameState_PreGame = (1<<1),
+	GameState_Running = (1<<2),
+	GameState_Overtime = (1<<3),
+	GameState_SuddenDeath = (1<<4),
+	GameState_GameOver = (1<<5)
 }
 
-enum eEnabledState(<<=1) {
+enum eEnabledState {
 	State_Disabled = 0,
-	State_Enabled = 1,
-	State_Forced,
-	State_ExternalOn, //a plugin placed an override
-	State_ExternalOff, //a plugin placed an override
-	State_BotAlways, //force-enabled in a way that can't turn off because bots
+	State_Enabled = (1<<0),
+	State_Forced = (1<<1),
+	State_ExternalOn = (1<<2), //a plugin placed an override
+	State_ExternalOff = (1<<3), //a plugin placed an override
+	State_BotAlways = (1<<4), //force-enabled in a way that can't turn off because bots
 }
 #define ENABLEDMASK_EXTERNAL  (State_ExternalOn|State_ExternalOff)
 

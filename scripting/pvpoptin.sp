@@ -76,13 +76,6 @@ bool clientInvalidHealNotif[MAXPLAYERS+1];
 float clientInvalidHealNotifLast[MAXPLAYERS+1];
 int togglePvPAction; //what to do when a player toggles global pvp, see TGACT_*
 
-float regenHPRate;
-float regenAmmoRate;
-//for values < 1 we need to wait a bit before we can give 1 hp
-float regenHPAccu;
-float regenAmmoAccu[MAXPLAYERS+1][4]; //looks like ammo types use 0..3
-float regenLastAction[MAXPLAYERS+1];
-
 #define TGACT_IN_RESPAWN 1
 #define TGACT_IN_KILL 2
 #define TGACT_OUT_RESPAWN 4
@@ -283,7 +276,6 @@ public void OnClientConnected(int client) {
 	clientInvalidHealNotifLast[client] = 0.0;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
-		regenAmmoAccu[i][0]=regenAmmoAccu[i][1]=regenAmmoAccu[i][2]=regenAmmoAccu[i][3]=0.0;
 	}
 }
 public void OnClientDisconnect(int client) {
@@ -421,6 +413,7 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 	} else if(action == MenuAction_End) {
 		delete menu;
 	}
+	return 0;
 }
 //endregion
 
@@ -593,6 +586,7 @@ public int HandlePickPlayerMenu(Menu menu, MenuAction action, int param1, int pa
 			RequestPairPvP(param1, target, true);
 		}
 	}
+	return 0;
 }
 
 public Action Command_ForcePvP(int client, int args) {
@@ -846,6 +840,7 @@ public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int
 		}
 		pairPvPVoteData.Set(at, 0, 3); //should now be unused, no further display calls requred
 	}
+	return 0;
 }
 static void MenuPairPvPRequest(int requester, int requestee) {
 	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
@@ -870,7 +865,7 @@ public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int pa
 	if (action == MenuAction_End) {
 		if (at >= 0) pairPvPVoteData.Erase(at);
 		delete menu;
-		return;
+		return 0;
 	} else if (action == MenuAction_Select) {
 		char buffer[4];
 		menu.GetItem(param2, buffer, sizeof(buffer));
@@ -886,6 +881,7 @@ public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int pa
 	} else {
 		DeclinePairPvP(vdata[2]);
 	}
+	return 0;
 }
 //endregion
 
@@ -932,7 +928,6 @@ static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		if ((togglePvPAction & TGACT_OUT_KILL)!=0) ForcePlayerSuicide(client);
 		else if ((togglePvPAction & TGACT_OUT_RESPAWN)!=0) TF2_RespawnPlayer(client);
 	}
-	regenLastAction[client] = GetGameTime();
 
 	if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null) {
 		char value[2]="0";
@@ -966,7 +961,6 @@ bool SetPairPvP(int client1, int client2, bool pvp) {
 		pairPvP[client1][client2] = pairPvP[client2][client1] = pvp;
 		UpdatePvPParticles(client1);
 		UpdatePvPParticles(client2);
-		regenLastAction[client1] = regenLastAction[client2] = GetGameTime();
 		return true;
 	} else return false;
 }
@@ -1202,9 +1196,7 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 	}
 	if (!IsFakeClient(victim)) { //again, bots don't leave pvp
 		clientLatestPvPAction[victim] = GetClientTime(victim)-PvP_DISENGAGE_COOLDOWN;
-		regenLastAction[victim] = GetGameTime();
 	}
-	regenLastAction[attacker] = GetGameTime();
 
 	if (spawnKill_maxTime > 0.01 && spawnKill_minIncrease > 0 && spawnKill_maxIncreaseRoot >= 0.0 && spawnKill_threashold > 0 && spawnKill_banTime > 0) {
 		float timeAlive = GetGameTime() - clientSpawnTime[victim];
@@ -1275,38 +1267,6 @@ void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
 	if (usePlayerStateColors)
 		SetPlayerColor(client, playerStateColors[ci][0], playerStateColors[ci][1], playerStateColors[ci][2], playerStateColors[ci][3]);
 	if (usePvPParticle) UpdatePvPParticles(client);
-}
-
-void PassiveRegen() {
-	regenHPAccu += regenHPRate;
-	int heal = RoundToFloor(regenHPAccu);
-	regenHPAccu -= heal;
-	for (int client=1;client<=MaxClients;client++) {
-		//only regen players outside of pvp
-		if (!IsClientInGame(client) || IsFakeClient(client) || GetClientTeam(client)<2 || !IsPlayerAlive(client) || IsGlobalPvP(client) || HasAnyPairPvP(client))
-			continue;
-		if (GetGameTime()-regenLastAction[client] < 5.0)
-			continue; //recently did something like shoot
-		//heal
-		Entity_AddHealth(client, heal);
-		//add ammo and metal for all weapons
-		for (int type; type <= 3; type++) {
-			int maxammo = TF2Util_GetPlayerMaxAmmo(client, type, TF2_GetPlayerClass(client));
-			if (maxammo > 0) {
-				regenAmmoAccu[client][type] += regenAmmoRate;
-				if (regenAmmoAccu[client][type] > 100.0) regenAmmoAccu[client][type] = 100.0; //no more than 100% ammo refill per tick
-				int amount = RoundToFloor(maxammo * regenAmmoAccu[client][type] / 100);
-				if (amount > 0) {
-					//limit
-					if (amount > maxammo) amount = maxammo;
-					GivePlayerAmmo(client, amount, type, true);
-					//how much percent did we give? subtract that from the accu
-					regenAmmoAccu[client][type] -= float(amount) * 100.0 / float(maxammo);
-				}
-			}
-			//reset timer
-		}
-	}
 }
 
 //endregion

@@ -82,6 +82,7 @@
 				"library"	"server"
 				"linux"		"@_ZN25CTFProjectile_HealingBolt16ImpactTeamPlayerEP9CTFPlayer"
 				"windows"	"\x55\x8B\xEC\x83\xEC\x10\x56\x57\x8B\x7D\x08\x8B\xF1\x89\x75\xF0"
+				//LKASM  55 8B EC 83 EC 10 56 57 8B 7D 08 8B F1 89 75 F0
 			}
 		}
 		"Functions"

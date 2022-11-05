@@ -25,7 +25,6 @@ void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
 	}
 }
 public Action Timer_EverySecond(Handle timer) {
-	PassiveRegen();
 	for (int client=1;client<=MaxClients;client++) {
 		// accidents happen, slowly decay score
 		if (clientSpawnKillScore[client] > 0)
