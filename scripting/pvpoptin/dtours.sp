@@ -28,6 +28,8 @@ static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
 static bool detoured_CWeaponMedigun_AllowedToHealTarget;
 static DHookSetup hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer;
 static bool detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer;
+static DHookSetup hdl_CTFPlayer_UpdateModel;
+static bool detoured_CTFPlayer_UpdateModel;
 
 void Plugin_SetupDHooks() {
 	GameData pvpfundata = new GameData("pvpoptin.games");
@@ -35,17 +37,19 @@ void Plugin_SetupDHooks() {
 		//to find this signature you can go up Spawn function through powerups to bonuspacks.
 		//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
 		//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
-		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot_IsEnemy");
-		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
-		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
-		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack_IsPotentiallyChaseable");
-		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss_FindClosestVisibleVictim");
-		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
-		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
-		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
+		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot::IsEnemy()");
+		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack::IsPotentiallyChaseable()");
+		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack::IsPotentiallyChaseable()");
+		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack::IsPotentiallyChaseable()");
+		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss::FindClosestVisibleVictim()");
+		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer::ApplyGenericPushbackImpulse()");
+		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::ValidTargetPlayer()");
+		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::FoundTarget()");
 		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
-		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun_AllowedToHealTarget");
-		hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookCreateFromConf(pvpfundata, "CTFProjectile_HealingBolt_ImpactTeamPlayer");
+		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun::AllowedToHealTarget()");
+		hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookCreateFromConf(pvpfundata, "CTFProjectile_HealingBolt::ImpactTeamPlayer()");
+		hdl_CTFPlayer_UpdateModel = DHookCreateFromConf(pvpfundata, "CTFPlayer::UpdateModel()");
+		
 		delete pvpfundata;
 	}
 }
@@ -99,7 +103,12 @@ void DHooksAttach() {
 	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && !detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer) {
 		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookEnableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
 	} else {
-		PrintToServer("Could not hook CWeaponMedigun::AllowedToHealTarget(CBaseEntity*). Medic can grief PvP duels!");
+		PrintToServer("Could not hook CTFProjectile_HealingBolt::ImpactTeamPlayer(CBaseEntity*). Medic can grief PvP duels!");
+	}
+	if (hdl_CTFPlayer_UpdateModel != INVALID_HANDLE && !detoured_CTFPlayer_UpdateModel) {
+		detoured_CTFPlayer_UpdateModel = DHookEnableDetour(hdl_CTFPlayer_UpdateModel, true, Detour_CTFPlayer_UpdateModel);
+	} else {
+		PrintToServer("Could not hook CTFPlayer::UpdateModel(). Players can hide their pvp state with vanity models!");
 	}
 }
 void DHooksDetach() {
@@ -123,6 +132,8 @@ void DHooksDetach() {
 		detoured_CWeaponMedigun_AllowedToHealTarget ^= DHookDisableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
 	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer)
 		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer ^= DHookDisableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
+	if (hdl_CTFPlayer_UpdateModel != INVALID_HANDLE && detoured_CTFPlayer_UpdateModel)
+		detoured_CTFPlayer_UpdateModel ^= DHookDisableDetour(hdl_CTFPlayer_UpdateModel, true, Detour_CTFPlayer_UpdateModel);
 }
 
 // this dhook simply makes bots ignore players that dont want to pvp
@@ -263,6 +274,12 @@ public MRESReturn Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer(int healingB
 	return MRES_Supercede;
 }
 
+public MRESReturn Detour_CTFPlayer_UpdateModel(int entity) {
+	if (!(1<=entity<=MaxClients) || !IsClientInGame(entity)) return MRES_Ignored;
+	PrintToServer("%N (%s) using vanity model? %s", entity, IsPlayerAlive(entity)?"alive":"dead", IsPlayerModelValid(entity)?"yes":"no");
+	return MRES_Ignored;
+}
+
 //keep as simple and quick as possible
 //don't check result, that does NOT pass the previous result!
 public Action CH_PassFilter(int ent1, int ent2, bool &result) {
@@ -278,4 +295,3 @@ public Action CH_PassFilter(int ent1, int ent2, bool &result) {
 	}
 	return Plugin_Continue;
 }
-

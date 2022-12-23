@@ -899,6 +899,11 @@ void PrintGlobalPvpState(int client) {
 }
 //return false if cancelled
 static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
+	if (pvp && !IsPlayerModelValid(client)) {
+		CPrintToChat(client, "%t", "Model invalid for global pvp");
+		return false;
+	}
+	
 	bool enterPvP = pvp && !(globalPvP[client]&State_Enabled);
 	if (checkCooldown) {
 		//timeLeft = cooldown - time spent in pvp

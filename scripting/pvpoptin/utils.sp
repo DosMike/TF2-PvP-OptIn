@@ -52,13 +52,6 @@ public Action Timer_PvPParticles(Handle timer) {
 	return Plugin_Continue;
 }
 void UpdatePvPParticles(int client) {
-	//head attachment points, sourcemod has no builtin to lookup so i just hardcode
-	// count from "(none)"==0 in HLMV
-	static int AttachPoint_Head[10]={ 0,
-		/* scout */ 12, /* sniper */ 8, /* soldier */ 8,
-		/* demo  */  7, /* medic  */ 8, /* heavy   */ 8,
-		/* pyro  */  1, /* spy    */ 10, /* engi    */ 5,
-	};
 	int targets[MAXPLAYERS], tcount, tmask;
 	if (!Client_IsIngame(client)) return;
 	if (!TF2_IsPlayerInCondition(client, TFCond_Cloaked)) {
@@ -93,11 +86,14 @@ void UpdatePvPParticles(int client) {
 		}
 		// just restart the particle for everyone that can see it (will "blink" shadow if it was already playing)
 		if (tmask) {
+			int attach_point = LookupEntityAttachment(client, "head");
+			ParticleAttachment_t attach_mode = attach_point ? PATTACH_POINT_FOLLOW : PATTACH_ROOTBONE_FOLLOW;
 			float angles[3];
 			float zero[3];
 			float offset[3]={0.0, 0.0, PVP_PARTICLE_OFFSET};
+			if (attach_point == 0) offset[2] += 80.0; //pull up roughly to where the head would be
 			GetClientEyeAngles(client, angles);
-			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,PATTACH_POINT_FOLLOW,AttachPoint_Head[effectiveClass],true);
+			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,attach_mode,attach_point,true);
 			TE_Send(targets, tcount);
 		}
 		clientParticleAttached[client] = tmask;
@@ -109,7 +105,7 @@ void ParticleEffectStop(int entity) {
 }
 
 //https://forums.alliedmods.net/showthread.php?t=75102
-void TE_StartParticle(const char[] name, float pos[3], float offset[3], float angles[3], int parentTo=-1, ParticleAttachment_t attachType=PATTACH_INVALID, int attachPoint=-1, bool reset=false) {
+void TE_StartParticle(const char[] name, float pos[3], float offset[3], float angles[3], int parentTo=-1, ParticleAttachment_t attachType=PATTACH_INVALID, int attachPoint=0, bool reset=false) {
 	static int table = INVALID_STRING_TABLE;
 	if (table == INVALID_STRING_TABLE) {
 		if ((table=FindStringTable("ParticleEffectNames"))==INVALID_STRING_TABLE)
@@ -139,7 +135,7 @@ void TE_StartParticle(const char[] name, float pos[3], float offset[3], float an
 	TE_WriteNum("m_iParticleSystemIndex", index);
 	if (parentTo!=-1) TE_WriteNum("entindex", parentTo);
 	if (attachType!=PATTACH_INVALID) TE_WriteNum("m_iAttachType", view_as<int>(attachType));
-	if (attachPoint!=-1) TE_WriteNum("m_iAttachmentPointIndex", attachPoint);
+	if (attachPoint>0) TE_WriteNum("m_iAttachmentPointIndex", attachPoint);
 	TE_WriteNum("m_bResetParticles", reset?1:0);
 }
 
@@ -222,4 +218,15 @@ Handle FindPluginByName(const char[] pluginName, const char[] pluginAuthor=NULL_
 	}
 	delete plugins;
 	return result;
+}
+
+/**
+ * Check if the current model has a head attachment point. if yes, this is a proper
+ * player model we allow for PVP; if not, this is probably a vanity model with poor
+ * hitboxes (like maxwell the cat or something else)
+ * @return true if the player is valid and the player model is valid.
+ */
+bool IsPlayerModelValid(int player) {
+	if (!(1<=player<=MaxClients) || !IsClientInGame(player)) return false;
+	return LookupEntityAttachment(player, "head") > 0;
 }
