@@ -28,8 +28,9 @@ static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
 static bool detoured_CWeaponMedigun_AllowedToHealTarget;
 static DHookSetup hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer;
 static bool detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer;
-static DHookSetup hdl_CTFPlayer_UpdateModel;
-static bool detoured_CTFPlayer_UpdateModel;
+static DHookSetup hdl_CTFPlayerClassShared_SetCustomModel;
+static bool detoured_CTFPlayerClassShared_SetCustomModel;
+static int offset_CTFPlayer_m_PlayerClass;
 
 void Plugin_SetupDHooks() {
 	GameData pvpfundata = new GameData("pvpoptin.games");
@@ -48,8 +49,8 @@ void Plugin_SetupDHooks() {
 		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
 		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun::AllowedToHealTarget()");
 		hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookCreateFromConf(pvpfundata, "CTFProjectile_HealingBolt::ImpactTeamPlayer()");
-		hdl_CTFPlayer_UpdateModel = DHookCreateFromConf(pvpfundata, "CTFPlayer::UpdateModel()");
-		
+		hdl_CTFPlayerClassShared_SetCustomModel = DHookCreateFromConf(pvpfundata, "CTFPlayerClassShared::SetCustomModel()");
+		offset_CTFPlayer_m_PlayerClass = pvpfundata.GetOffset("CTFPlayer::m_PlayerClass");
 		delete pvpfundata;
 	}
 }
@@ -105,10 +106,10 @@ void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CTFProjectile_HealingBolt::ImpactTeamPlayer(CBaseEntity*). Medic can grief PvP duels!");
 	}
-	if (hdl_CTFPlayer_UpdateModel != INVALID_HANDLE && !detoured_CTFPlayer_UpdateModel) {
-		detoured_CTFPlayer_UpdateModel = DHookEnableDetour(hdl_CTFPlayer_UpdateModel, true, Detour_CTFPlayer_UpdateModel);
+	if (hdl_CTFPlayerClassShared_SetCustomModel != INVALID_HANDLE && !detoured_CTFPlayerClassShared_SetCustomModel) {
+		detoured_CTFPlayerClassShared_SetCustomModel = DHookEnableDetour(hdl_CTFPlayerClassShared_SetCustomModel, true, Detour_CTFPlayerClassShared_SetCustomModel);
 	} else {
-		PrintToServer("Could not hook CTFPlayer::UpdateModel(). Players can hide their pvp state with vanity models!");
+		PrintToServer("Could not hook CTFPlayerClassShared::SetCustomModel(). Players can hide their pvp state with vanity models!");
 	}
 }
 void DHooksDetach() {
@@ -132,8 +133,8 @@ void DHooksDetach() {
 		detoured_CWeaponMedigun_AllowedToHealTarget ^= DHookDisableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
 	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer)
 		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer ^= DHookDisableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
-	if (hdl_CTFPlayer_UpdateModel != INVALID_HANDLE && detoured_CTFPlayer_UpdateModel)
-		detoured_CTFPlayer_UpdateModel ^= DHookDisableDetour(hdl_CTFPlayer_UpdateModel, true, Detour_CTFPlayer_UpdateModel);
+	if (hdl_CTFPlayerClassShared_SetCustomModel != INVALID_HANDLE && detoured_CTFPlayerClassShared_SetCustomModel)
+		detoured_CTFPlayerClassShared_SetCustomModel ^= DHookDisableDetour(hdl_CTFPlayerClassShared_SetCustomModel, true, Detour_CTFPlayerClassShared_SetCustomModel);
 }
 
 // this dhook simply makes bots ignore players that dont want to pvp
@@ -274,10 +275,25 @@ public MRESReturn Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer(int healingB
 	return MRES_Supercede;
 }
 
-public MRESReturn Detour_CTFPlayer_UpdateModel(int entity) {
-	if (!(1<=entity<=MaxClients) || !IsClientInGame(entity)) return MRES_Ignored;
-	PrintToServer("%N (%s) using vanity model? %s", entity, IsPlayerAlive(entity)?"alive":"dead", IsPlayerModelValid(entity)?"yes":"no");
+public MRESReturn Detour_CTFPlayerClassShared_SetCustomModel(Address pThis) {
+	int client = UTIL_FindPlayerForClass(pThis);
+	if (!(1<=client<=MaxClients) || !IsClientInGame(client)) return MRES_Ignored;
+	if (!clientCustomModelPostRequested[client]) {
+		clientCustomModelPostRequested[client]=true;
+		RequestFrame(OnClientModelChanged, GetClientUserId(client));
+	}
 	return MRES_Ignored;
+}
+void OnClientModelChanged(int userid) {
+	int client = GetClientOfUserId(userid);
+	if (!client || !IsClientInGame(client)) return;
+	clientCustomModelPostRequested[client]=false;
+	if (!IsPlayerModelValid(client)) {
+		SetGlobalPvP(client, false);
+	} else {
+		clientForceUpdateParticle[client] = true;
+		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
+	}
 }
 
 //keep as simple and quick as possible
@@ -294,4 +310,14 @@ public Action CH_PassFilter(int ent1, int ent2, bool &result) {
 		}
 	}
 	return Plugin_Continue;
+}
+
+/** look up the player for a CTFPlayerClassShared instance.  */
+static int UTIL_FindPlayerForClass(Address sharedClass) {
+	for (int client=1; client<=MaxClients; client++) {
+		if (!IsClientInGame(client)) continue;
+		Address clientSharedClasss = GetEntityAddress(client)+view_as<Address>(offset_CTFPlayer_m_PlayerClass);
+		if (clientSharedClasss == sharedClass) return client;
+	}
+	return 0;
 }

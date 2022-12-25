@@ -2,6 +2,17 @@
 {
 	"tf"
 	{
+		"Offsets"
+		{
+			
+			"CTFPlayer::m_PlayerClass"
+			{
+				// Offset from CTFPlayer to CTFPlayerClassShared member, used to get client from CTFPlayerClassShared functions
+				// Inspect calls to CTFPlayerClassShared::SetCustomModel from CTFPlayer::SetCustomModel. For win: this should be 4 very short functions that are basically SetCustomModel();UpdateModel()
+				"linux"		"8768"
+				"windows"	"8764"
+			}
+		}
 		"Signatures"
 		{
 			"INextBot::IsEnemy()"
@@ -84,21 +95,22 @@
 				"windows"	"\x55\x8B\xEC\x83\xEC\x10\x56\x57\x8B\x7D\x08\x8B\xF1\x89\x75\xF0"
 				//LKASM  55 8B EC 83 EC 10 56 57 8B 7D 08 8B F1 89 75 F0
 			}
-			"CTFPlayer::UpdateModel()"
+			"CTFPlayerClassShared::SetCustomModel()"
 			{
-				// contract is to be called after SetCustomModel, so it can be used to detect changes in models
-				// find after SetCustomModel call with fairly unique string "models/bots/demo/bot_sentry_buster.mdl"
+				// Using UpdateModel would have been nicer i guess, but that's inlined in some places on windows
+				// find SetCustomModel call with fairly unique string "models/bots/demo/bot_sentry_buster.mdl"
 				"library"	"server"
-				"linux"		"@_ZN9CTFPlayer11UpdateModelEv"
-				"windows"	"\x55\x8B\xEC\x83\xEC\x18\x56\x57\x8B\xF9\x8B\x37"
-				//LKASM  55 8b ec 83 ec 18 56 57 8b f9 8b 37
+				"linux"		"@_ZN20CTFPlayerClassShared14SetCustomModelEPKcb"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x0C\x53\x56\x57\x8B\x7D\x08\x8B\xF1\x85\xFF\x74\x6C\x80\x3F\x00"
+				//LKASM  55 8B EC 83 EC 0C 53 56 57 8B 7D 08 8B F1 85 FF 74 6C 80 3F 00
+				//LKASM  FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 FF FF FF
 			}
 		}
 		"Functions"
 		{
 			"INextBot::IsEnemy()"
 			{
-				"signature" "INextBot_IsEnemy"
+				"signature" "INextBot::IsEnemy()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "address"
@@ -176,7 +188,7 @@
 			}
 			"CTFPlayer::ApplyGenericPushbackImpulse()"
 			{
-				"signature" "CTFPlayer_ApplyGenericPushbackImpulse"
+				"signature" "CTFPlayer::ApplyGenericPushbackImpulse()"
 				"callconv" "thiscall"
 				"return" "void"
 				"this" "entity"
@@ -216,7 +228,7 @@
 			}
 			"CObjectSentrygun::FoundTarget()"
 			{
-				"signature" "CObjectSentrygun_FoundTarget"
+				"signature" "CObjectSentrygun::FoundTarget()"
 				"callconv" "thiscall"
 				"return" "void"
 				"this" "entity"
@@ -265,13 +277,22 @@
 					}
 				}
 			}
-			"CTFPlayer::UpdateModel()"
+			"CTFPlayerClassShared::SetCustomModel()"
 			{
-				"signature" "CTFPlayer::UpdateModel()"
+				"signature" "CTFPlayerClassShared::SetCustomModel()"
 				"callconv" "thiscall"
 				"return" "void"
-				"this" "entity"
-				"arguments" {}
+				"this" "address"
+				"arguments" {
+					"model"
+					{
+						"type"	"charptr"
+					}
+					"useClassAnims"
+					{
+						"type"	"bool"
+					}
+				}
 			}
 		}
 	}

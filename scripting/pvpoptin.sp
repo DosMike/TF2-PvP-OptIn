@@ -13,7 +13,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w41a"
+#define PLUGIN_VERSION "22w51a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -74,6 +74,7 @@ float clientSpawnTime[MAXPLAYERS+1]; //game time the client last spawned (to all
 int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slowly decay over time, count up base on client alive time
 bool clientInvalidHealNotif[MAXPLAYERS+1];
 float clientInvalidHealNotifLast[MAXPLAYERS+1];
+bool clientCustomModelPostRequested[MAXPLAYERS+1]; //to check if a client has already changed model this frame so we don't duplicate checks
 int togglePvPAction; //what to do when a player toggles global pvp, see TGACT_*
 
 #define TGACT_IN_RESPAWN 1
@@ -274,6 +275,7 @@ public void OnClientConnected(int client) {
 	clientSpawnKillScore[client] = 0;
 	clientInvalidHealNotif[client] = false;
 	clientInvalidHealNotifLast[client] = 0.0;
+	clientCustomModelPostRequested[client] = false;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
 	}
@@ -898,8 +900,9 @@ void PrintGlobalPvpState(int client) {
 	CPrintToChat(client, "%t", "Hey there's also pair pvp");
 }
 //return false if cancelled
-static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
-	if (pvp && !IsPlayerModelValid(client)) {
+bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
+	bool modelValid = IsPlayerModelValid(client);
+	if (pvp && !modelValid) {
 		CPrintToChat(client, "%t", "Model invalid for global pvp");
 		return false;
 	}
@@ -941,7 +944,10 @@ static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		delete cookie;
 	}
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
-	PrintGlobalPvpState(client);
+	if (modelValid)
+		PrintGlobalPvpState(client);
+	else if (!pvp)
+		CPrintToChat(client, "%t", "Model invalid for global pvp");
 	return true;
 }
 static void SetPairPvPIgnored(int client, bool ignore) {

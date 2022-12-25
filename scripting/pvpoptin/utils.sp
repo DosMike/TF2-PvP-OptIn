@@ -87,7 +87,7 @@ void UpdatePvPParticles(int client) {
 		// just restart the particle for everyone that can see it (will "blink" shadow if it was already playing)
 		if (tmask) {
 			int attach_point = LookupEntityAttachment(client, "head");
-			ParticleAttachment_t attach_mode = attach_point ? PATTACH_POINT_FOLLOW : PATTACH_ROOTBONE_FOLLOW;
+			ParticleAttachment_t attach_mode = attach_point ? PATTACH_POINT_FOLLOW : PATTACH_ABSORIGIN_FOLLOW;
 			float angles[3];
 			float zero[3];
 			float offset[3]={0.0, 0.0, PVP_PARTICLE_OFFSET};
@@ -227,6 +227,5 @@ Handle FindPluginByName(const char[] pluginName, const char[] pluginAuthor=NULL_
  * @return true if the player is valid and the player model is valid.
  */
 bool IsPlayerModelValid(int player) {
-	if (!(1<=player<=MaxClients) || !IsClientInGame(player)) return false;
 	return LookupEntityAttachment(player, "head") > 0;
 }
