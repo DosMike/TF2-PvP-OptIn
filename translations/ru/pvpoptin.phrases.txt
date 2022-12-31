@@ -233,4 +233,8 @@
 	{
 		"ru"	"{darkviolet}[PvP]{default} Лечение игроков разрешено, только если оба находятся в {goldenrod}глобальной битве{default}!"
 	}
+	"Model invalid for global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы {crimson}не можете{default} участвовать в {goldenrod}глобальной битве{default}, используя стильную модель"
+	}
 }
