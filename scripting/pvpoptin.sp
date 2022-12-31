@@ -2,8 +2,9 @@
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <clientprefs>
-#include <morecolors>
+
 #include <smlib>
+#include <morecolors>
 #include <collisionhook>
 #include <dhooks>
 #include <tf2utils>
@@ -12,7 +13,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w25a"
+#define PLUGIN_VERSION "22w51a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -36,6 +37,7 @@ public Plugin myinfo = {
 #define PvP_PAIRREQUEST_COOLDOWN 15.0
 #define PvP_PAIRVOTE_DISPLAYTIME 10
 
+#define PVP_HEALBLOCK_BOLT "weapons/medi_shield_burn_01.wav"
 //#define PVP_PARTICLE "pvpoptin_indicator"
 #define PVP_PARTICLE "mark_for_death"
 // the offset should be 0.0 for the custom particle, 16.0 is good for marked for death
@@ -72,6 +74,7 @@ float clientSpawnTime[MAXPLAYERS+1]; //game time the client last spawned (to all
 int clientSpawnKillScore[MAXPLAYERS+1]; //score tracker for spawn killers - slowly decay over time, count up base on client alive time
 bool clientInvalidHealNotif[MAXPLAYERS+1];
 float clientInvalidHealNotifLast[MAXPLAYERS+1];
+bool clientCustomModelPostRequested[MAXPLAYERS+1]; //to check if a client has already changed model this frame so we don't duplicate checks
 int togglePvPAction; //what to do when a player toggles global pvp, see TGACT_*
 
 #define TGACT_IN_RESPAWN 1
@@ -190,6 +193,7 @@ public void OnMapStart() {
 
 //	PrecacheGeneric("particles/pvpoptin_pvpicon.pcf", true);
 	PrecacheParticleSystem(PVP_PARTICLE);
+	PrecacheSound(PVP_HEALBLOCK_BOLT);
 	CreateTimer(5.0, Timer_PvPParticles, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 	CreateTimer(1.0, Timer_EverySecond, _, TIMER_FLAG_NO_MAPCHANGE|TIMER_REPEAT);
 }
@@ -271,6 +275,7 @@ public void OnClientConnected(int client) {
 	clientSpawnKillScore[client] = 0;
 	clientInvalidHealNotif[client] = false;
 	clientInvalidHealNotifLast[client] = 0.0;
+	clientCustomModelPostRequested[client] = false;
 	for (int i=1;i<=MaxClients;i++) {
 		clientParticleAttached[i] &=~ (1<<(client-1));
 	}
@@ -410,6 +415,7 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 	} else if(action == MenuAction_End) {
 		delete menu;
 	}
+	return 0;
 }
 //endregion
 
@@ -582,6 +588,7 @@ public int HandlePickPlayerMenu(Menu menu, MenuAction action, int param1, int pa
 			RequestPairPvP(param1, target, true);
 		}
 	}
+	return 0;
 }
 
 public Action Command_ForcePvP(int client, int args) {
@@ -835,6 +842,7 @@ public int PairPvPNativeVote(NativeVote vote, MenuAction action, int param1, int
 		}
 		pairPvPVoteData.Set(at, 0, 3); //should now be unused, no further display calls requred
 	}
+	return 0;
 }
 static void MenuPairPvPRequest(int requester, int requestee) {
 	if (pairPvPVoteData == null) pairPvPVoteData = new ArrayList(3);
@@ -859,7 +867,7 @@ public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int pa
 	if (action == MenuAction_End) {
 		if (at >= 0) pairPvPVoteData.Erase(at);
 		delete menu;
-		return;
+		return 0;
 	} else if (action == MenuAction_Select) {
 		char buffer[4];
 		menu.GetItem(param2, buffer, sizeof(buffer));
@@ -875,6 +883,7 @@ public int PairPvPSourcemodVote(Menu menu, MenuAction action, int param1, int pa
 	} else {
 		DeclinePairPvP(vdata[2]);
 	}
+	return 0;
 }
 //endregion
 
@@ -891,7 +900,13 @@ void PrintGlobalPvpState(int client) {
 	CPrintToChat(client, "%t", "Hey there's also pair pvp");
 }
 //return false if cancelled
-static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
+bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
+	bool modelValid = IsPlayerModelValid(client);
+	if (pvp && !modelValid) {
+		CPrintToChat(client, "%t", "Model invalid for global pvp");
+		return false;
+	}
+	
 	bool enterPvP = pvp && !(globalPvP[client]&State_Enabled);
 	if (checkCooldown) {
 		//timeLeft = cooldown - time spent in pvp
@@ -929,7 +944,10 @@ static bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		delete cookie;
 	}
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
-	PrintGlobalPvpState(client);
+	if (modelValid)
+		PrintGlobalPvpState(client);
+	else if (!pvp)
+		CPrintToChat(client, "%t", "Model invalid for global pvp");
 	return true;
 }
 static void SetPairPvPIgnored(int client, bool ignore) {

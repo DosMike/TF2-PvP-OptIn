@@ -2,9 +2,20 @@
 {
 	"tf"
 	{
+		"Offsets"
+		{
+			
+			"CTFPlayer::m_PlayerClass"
+			{
+				// Offset from CTFPlayer to CTFPlayerClassShared member, used to get client from CTFPlayerClassShared functions
+				// Inspect calls to CTFPlayerClassShared::SetCustomModel from CTFPlayer::SetCustomModel. For win: this should be 4 very short functions that are basically SetCustomModel();UpdateModel()
+				"linux"		"8768"
+				"windows"	"8764"
+			}
+		}
 		"Signatures"
 		{
-			"INextBot_IsEnemy"
+			"INextBot::IsEnemy()"
 			{
 				"library" "server"
 				"linux" "@_ZNK8INextBot7IsEnemyEPK11CBaseEntity"
@@ -12,14 +23,14 @@
 				// LKASM : 55 8B EC 83 7D 08 00 75 06 32 C0 5D C2 04 00 8B 01 56 FF 90 B8 00 00 00 8B C8 E8 21 27 DF FF 8B 4D 08 8B F0 E8 17 27 DF FF 33 C9 3B F0 5E 0F 95 C0
 				// MASK  : FF FF FF FF F8 00 FF FF 00 FF FF FF FF FF FF FF F8 FF FF F8 00 00 00 00 FF FF FF 00 00 00 00 FF F8 00 FF FF FF 00 00 00 00 FF FF FF FF FF FF FF C7
 			}
-			"CZombieAttack_IsPotentiallyChaseable"
+			"CZombieAttack::IsPotentiallyChaseable()"
 			{
 				"library" "server"
 				"linux" "@_ZN13CZombieAttack22IsPotentiallyChaseableEP7CZombieP20CBaseCombatCharacter"
 				"windows" "\x55\x8B\xEC\x83\xEC\x0C\x56\x8B\x75\x0C\x85\xF6\x75\x09"
 				// LKASM : 55 8B EC 83 EC 0C 56 8B 75 0C 85 F6 75 09
 			}
-			"CHeadlessHatmanAttack_IsPotentiallyChaseable"
+			"CHeadlessHatmanAttack::IsPotentiallyChaseable()"
 			{
 				"library" "server"
 				"linux" "@_ZN21CHeadlessHatmanAttack22IsPotentiallyChaseableEP15CHeadlessHatmanP9CTFPlayer"
@@ -27,7 +38,7 @@
 				// LKASM : 55 8b ec 83 ec 14 56 8b 75 0c 89 4d fc 85 f6 75 09
 				// MASK  : 
 			}
-			"CMerasmusAttack_IsPotentiallyChaseable"
+			"CMerasmusAttack::IsPotentiallyChaseable()"
 			{
 				"library" "server"
 				"linux" "@_ZN15CMerasmusAttack22IsPotentiallyChaseableEP9CMerasmusP9CTFPlayer"
@@ -35,7 +46,7 @@
 				// LKASM : 55 8b ec 83 ec 0c 53 56 8b 75 0c 8b d9 85 f6
 				// MASK  : 
 			}
-			"CEyeballBoss_FindClosestVisibleVictim"
+			"CEyeballBoss::FindClosestVisibleVictim()"
 			{
 				"library" "server"
 				"linux" "@_ZN12CEyeballBoss24FindClosestVisibleVictimEv"
@@ -43,7 +54,7 @@
 				// LKASM : 55 8B EC 83 EC 2C F3 0F 10 05 E4 4B 70 10 53 56 57
 				// MASK  : FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF
 			}
-			"CTFPlayer_ApplyGenericPushbackImpulse"
+			"CTFPlayer::ApplyGenericPushbackImpulse()"
 			{
 				"library" "server"
 				"linux" "@_ZN9CTFPlayer27ApplyGenericPushbackImpulseERK6VectorPS_"
@@ -51,7 +62,7 @@
 				// LKASM : 55 8B EC 83 EC 0C 53 57 8B F9 8D 8F B0 19 00 00 E8 FB 7D 03 00
 				// MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00
 			}
-			"CObjectSentrygun_ValidTargetPlayer"
+			"CObjectSentrygun::ValidTargetPlayer()"
 			{
 				"library" "server"
 				"linux" "@_ZN16CObjectSentrygun17ValidTargetPlayerEP9CTFPlayerRK6VectorS4_"
@@ -59,7 +70,7 @@
 				// LKASM : 55 8B EC 51 53 8B 5D 08 57 89 4D FC 8D BB B0 19 00 00
 				// MASK  : FF FF FF FF FF FF F8 00 FF FF F8 00 FF F8 00 00 00 00
 			}
-			"CObjectSentrygun_FoundTarget"
+			"CObjectSentrygun::FoundTarget()"
 			{
 				"library" "server"
 				"linux" "@_ZN16CObjectSentrygun11FoundTargetEP11CBaseEntityRK6Vectorb"
@@ -67,7 +78,7 @@
 				// LKASM : 55 8B EC 83 EC 40 56 8B F1 57 8B 7D 08
 				// MASK  : FF FF FF FF FF FF FF FF FF FF FF F8 00
 			}
-			"CWeaponMedigun_AllowedToHealTarget"
+			"CWeaponMedigun::AllowedToHealTarget()"
 			{
 				"library" "server"
 				"linux" "@_ZN14CWeaponMedigun19AllowedToHealTargetEP11CBaseEntity"
@@ -75,12 +86,31 @@
 				//LKASM : 55 8B EC 53 8B D9 56 57 8B B3 E8 01 00 00 83 FE FF 0F 84 64 01 00 00 A1 A0 A7 8F 10 8B D6 81 E2 FF 0F 00 00 C1 E2 04 8D 78 04 03 FA 0F 84 49 01 00 00 C1 EE 0C 39 77 04 0F 85 3D 01 00 00 8B 3F 85 FF 0F 84 33 01 00 00 8B 07 8B CF 8B 80 40 01 00 00 FF D0 84 C0 0F 84 1F 01 00 00 8B 75 08 85 F6 0F 84 14 01 00 00 8B 06 8B CE 8B 80 40 01 00 00
 				//MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF 00 00 00 00 FF FF FF FF FF FF FF FF FF FF 
 			}
+			//from nosoops TFCustomAttributeStarterPack
+			"CTFProjectile_HealingBolt::ImpactTeamPlayer()"
+			{
+				// x-ref "Weapon_Arrow.ImpactFleshCrossbowHeal" in branching function
+				"library"	"server"
+				"linux"		"@_ZN25CTFProjectile_HealingBolt16ImpactTeamPlayerEP9CTFPlayer"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x10\x56\x57\x8B\x7D\x08\x8B\xF1\x89\x75\xF0"
+				//LKASM  55 8B EC 83 EC 10 56 57 8B 7D 08 8B F1 89 75 F0
+			}
+			"CTFPlayerClassShared::SetCustomModel()"
+			{
+				// Using UpdateModel would have been nicer i guess, but that's inlined in some places on windows
+				// find SetCustomModel call with fairly unique string "models/bots/demo/bot_sentry_buster.mdl"
+				"library"	"server"
+				"linux"		"@_ZN20CTFPlayerClassShared14SetCustomModelEPKcb"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x0C\x53\x56\x57\x8B\x7D\x08\x8B\xF1\x85\xFF\x74\x6C\x80\x3F\x00"
+				//LKASM  55 8B EC 83 EC 0C 53 56 57 8B 7D 08 8B F1 85 FF 74 6C 80 3F 00
+				//LKASM  FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 FF FF FF
+			}
 		}
 		"Functions"
 		{
-			"INextBot_IsEnemy"
+			"INextBot::IsEnemy()"
 			{
-				"signature" "INextBot_IsEnemy"
+				"signature" "INextBot::IsEnemy()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "address"
@@ -93,9 +123,9 @@
 				}
 			}
 			// Hook skeletons chasing players
-			"CZombieAttack_IsPotentiallyChaseable"
+			"CZombieAttack::IsPotentiallyChaseable()"
 			{
-				"signature" "CZombieAttack_IsPotentiallyChaseable"
+				"signature" "CZombieAttack::IsPotentiallyChaseable()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "ignore"
@@ -112,9 +142,9 @@
 				}
 			}
 			// Hook headless hatman chasing players
-			"CHeadlessHatmanAttack_IsPotentiallyChaseable"
+			"CHeadlessHatmanAttack::IsPotentiallyChaseable()"
 			{
-				"signature" "CHeadlessHatmanAttack_IsPotentiallyChaseable"
+				"signature" "CHeadlessHatmanAttack::IsPotentiallyChaseable()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "ignore"
@@ -131,9 +161,9 @@
 				}
 			}
 			// Hook merasmus hatman chasing players
-			"CMerasmusAttack_IsPotentiallyChaseable"
+			"CMerasmusAttack::IsPotentiallyChaseable()"
 			{
-				"signature" "CMerasmusAttack_IsPotentiallyChaseable"
+				"signature" "CMerasmusAttack::IsPotentiallyChaseable()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "ignore"
@@ -150,15 +180,15 @@
 				}
 			}
 			// Hook monoculus chasing players
-			"CEyeballBoss_FindClosestVisibleVictim" {
-				"signature" "CEyeballBoss_FindClosestVisibleVictim"
+			"CEyeballBoss::FindClosestVisibleVictim()" {
+				"signature" "CEyeballBoss::FindClosestVisibleVictim()"
 				"callconv" "thiscall"
 				"return" "cbaseentity"
 				"this" "entity"
 			}
-			"CTFPlayer_ApplyGenericPushbackImpulse"
+			"CTFPlayer::ApplyGenericPushbackImpulse()"
 			{
-				"signature" "CTFPlayer_ApplyGenericPushbackImpulse"
+				"signature" "CTFPlayer::ApplyGenericPushbackImpulse()"
 				"callconv" "thiscall"
 				"return" "void"
 				"this" "entity"
@@ -174,9 +204,9 @@
 					}
 				}
 			}
-			"CObjectSentrygun_ValidTargetPlayer"
+			"CObjectSentrygun::ValidTargetPlayer()"
 			{
-				"signature" "CObjectSentrygun_ValidTargetPlayer"
+				"signature" "CObjectSentrygun::ValidTargetPlayer()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "entity"
@@ -196,9 +226,9 @@
 					}
 				}
 			}
-			"CObjectSentrygun_FoundTarget"
+			"CObjectSentrygun::FoundTarget()"
 			{
-				"signature" "CObjectSentrygun_FoundTarget"
+				"signature" "CObjectSentrygun::FoundTarget()"
 				"callconv" "thiscall"
 				"return" "void"
 				"this" "entity"
@@ -218,9 +248,9 @@
 					}
 				}
 			}
-			"CWeaponMedigun_AllowedToHealTarget"
+			"CWeaponMedigun::AllowedToHealTarget()"
 			{
-				"signature" "CWeaponMedigun_AllowedToHealTarget"
+				"signature" "CWeaponMedigun::AllowedToHealTarget()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "entity"
@@ -229,6 +259,38 @@
 					"target"
 					{
 						"type" "cbaseentity"
+					}
+				}
+			}
+			//from nosoops TFCustomAttributeStarterPack
+			"CTFProjectile_HealingBolt::ImpactTeamPlayer()"
+			{
+				"signature"		"CTFProjectile_HealingBolt::ImpactTeamPlayer()"
+				"callconv"		"thiscall"
+				"return"		"void"
+				"this"			"entity"
+				"arguments"
+				{
+					"target"
+					{
+						"type"	"cbaseentity"
+					}
+				}
+			}
+			"CTFPlayerClassShared::SetCustomModel()"
+			{
+				"signature" "CTFPlayerClassShared::SetCustomModel()"
+				"callconv" "thiscall"
+				"return" "void"
+				"this" "address"
+				"arguments" {
+					"model"
+					{
+						"type"	"charptr"
+					}
+					"useClassAnims"
+					{
+						"type"	"bool"
 					}
 				}
 			}

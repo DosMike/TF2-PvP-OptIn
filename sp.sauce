@@ -1,18 +1,16 @@
-sourcemod 1.10
+sourcemod 1.11
 auth github ${spsgitpat}
 
 #smlib and morecolors
 dependency github bcserv/smlib transitional_syntax-SNAPSHOT
 dependency raw https://raw.githubusercontent.com/DoctorMcKay/sourcemod-plugins/master/scripting/include/morecolors.inc
 
-#dhooks for bot stuff (not required for the sillies but great fun anyways)
-dependency github peace-maker/DHooks2 v2.2.0-detours17
 #up to date collisionhook sig for tf2 windows is not included in this release!
 # the master branch should have the sig tho
 dependency github Adrianilloo/Collisionhook 0.2
 #get additional information about conditions with this
 # nosoop is usually really quick at updating gamedata as well
-dependency github nosoop/SM-TFUtils 0.14.1.1
+dependency github nosoop/SM-TFUtils latest
 dependency github sapphonie/sourcemod-nativevotes-updated latest
 
 #compile

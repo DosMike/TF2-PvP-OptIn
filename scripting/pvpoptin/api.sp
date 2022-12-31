@@ -36,6 +36,7 @@ public APLRes AskPluginLoad2(Handle plugin, bool late, char[] error, int err_max
     CreateNative("pvp_UnbanPlayer",     Native_UnbanPlayer);
     
     RegPluginLibrary("pvpoptin");
+    return APLRes_Success;
 }
 
 //native bool pvp_IsActive();
@@ -68,6 +69,7 @@ public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
 			PrintGlobalPvpState(client);
 		}
 	}
+	return 0;
 }
 //native bool pvp_GetPlayerPair(int client1, int client2);
 public any Native_GetPlayerPair(Handle plugin, int numParams) {
@@ -105,6 +107,7 @@ public any Native_ForcePlayerPair(Handle plugin, int numParams) {
 	if (oldValue != force && client1!=client2 && Notify_OnPairChanged(client1, client2, force)) {
 		SetPairPvP(client1,client2,force);
 	}
+	return 0;
 }
 //native bool pvp_CanAttack(int client1, int client2);
 public any Native_CanAttack(Handle plugin, int numParams) {
@@ -133,6 +136,7 @@ public any Native_SetMirrored(Handle plugin, int numParams) {
 	sflag = (mirrorDamage[client] & ~ENABLEDMASK_EXTERNAL) | sflag;
 	
 	globalPvP[client] = sflag;
+	return 0;
 }
 //native void pvp_BanPlayer(int admin, int target, int time, const char[] reason);
 public any Native_BanPlayer(Handle plugin, int numParams) {
@@ -148,6 +152,7 @@ public any Native_BanPlayer(Handle plugin, int numParams) {
 	if (reason[0] != 0) strcopy(reason, sizeof(reason), "<No Reason>");
 	
 	BanClientPvP(admin, target, minutes, reason);
+	return 0;
 }
 //native void pvp_BanPlayer(int admin, int target, int time, const char[] reason);
 public any Native_UnbanPlayer(Handle plugin, int numParams) {
@@ -155,9 +160,10 @@ public any Native_UnbanPlayer(Handle plugin, int numParams) {
 	if (!Client_IsIngame(admin)) ThrowNativeError(SP_ERROR_PARAM, "Invalid admin index or admin not ingame (%i)", admin);
 	int target = GetNativeCell(2);
 	if (!Client_IsIngame(target)) ThrowNativeError(SP_ERROR_PARAM, "Invalid target index, target not ingame or target is bot (%i)", target);
-	if (IsFakeClient(target) || GetTime() >= clientPvPBannedUntil[target]) return; //not banned
+	if (IsFakeClient(target) || GetTime() >= clientPvPBannedUntil[target]) return 0; //not banned
 	
 	BanClientPvP(admin, target, 0, "");
+	return 0;
 }
 
 //return true to continue
@@ -206,7 +212,7 @@ bool Notify_OnPairChanged(int client1, int client2, bool changedOn) {
 	}
 }
 //return true to continue
-bool Notify_OnBanAdded(int admin, int client, int minutes, const char[] reason) {
+void Notify_OnBanAdded(int admin, int client, int minutes, const char[] reason) {
 	Call_StartForward(fwdBanAdded);
 	Call_PushCell(admin);
 	Call_PushCell(client);

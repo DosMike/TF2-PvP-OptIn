@@ -60,6 +60,8 @@ void Plugin_SetupConvars() {
 	cvar_UsePvPParticle = CreateConVar( "pvp_playerparticle_enable", "1", "Play a particle on players that can be PvPed. Playes for both global and pair PvP", _, true, 0.0, true, 1.0);
 	cvar_SpawnKillProperties = CreateConVar( "pvp_spawnkill_protection", "15 5 35 100 60", "Four parameters to configure spawn protection. min penalty, protection time, max penalty, threashold, timeout. Empty to disable, invalid values will use default.");
 	cvar_ToggleAction = CreateConVar( "pvp_toggle_action", "0", "Flags for what to do when global pvp is toggled (set to sum): 1 - Respawn when entering, 2 - Kill when entering, 4 - Respawn when leaving, 8 - Kill when leaving", _, true, 0.0, true, 16.0);
+	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
+	AutoExecConfig();
 	//hook cvars and load current values
 	hookAndLoadCvar(cvar_Version, OnCVarChanged_Version);
 	hookAndLoadCvar(cvar_JoinForceState, OnCVarChanged_JoinForceState);
@@ -78,8 +80,6 @@ void Plugin_SetupConvars() {
 	hookAndLoadCvar(cvar_UsePvPParticle, OnCVarChanged_UsePvPParticle);
 	hookAndLoadCvar(cvar_SpawnKillProperties, OnCVarChanged_SpawnKillProperties);
 	hookAndLoadCvar(cvar_ToggleAction, OnCVarChanged_ToggleAction);
-	//create fancy plugin config - should be sourcemod/pvpoptin.cfg
-	AutoExecConfig();
 }
 
 //region cvar handling

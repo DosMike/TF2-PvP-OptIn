@@ -26,6 +26,11 @@ static DHookSetup hdl_CObjectSentrygun_FoundTarget;
 static bool detoured_CObjectSentrygun_FoundTarget;
 static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
 static bool detoured_CWeaponMedigun_AllowedToHealTarget;
+static DHookSetup hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer;
+static bool detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer;
+static DHookSetup hdl_CTFPlayerClassShared_SetCustomModel;
+static bool detoured_CTFPlayerClassShared_SetCustomModel;
+static int offset_CTFPlayer_m_PlayerClass;
 
 void Plugin_SetupDHooks() {
 	GameData pvpfundata = new GameData("pvpoptin.games");
@@ -33,16 +38,19 @@ void Plugin_SetupDHooks() {
 		//to find this signature you can go up Spawn function through powerups to bonuspacks.
 		//that has a call to GetTeamNumber and IsEnemy is basically a function with that call twice.
 		//The first 20-something bytes of the signature are unlikely to change, just chip from the end and you should find it.
-		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot_IsEnemy");
-		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack_IsPotentiallyChaseable");
-		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack_IsPotentiallyChaseable");
-		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack_IsPotentiallyChaseable");
-		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss_FindClosestVisibleVictim");
-		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer_ApplyGenericPushbackImpulse");
-		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_ValidTargetPlayer");
-		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun_FoundTarget");
+		hdl_INextBot_IsEnemy = DHookCreateFromConf(pvpfundata, "INextBot::IsEnemy()");
+		hdl_CZombieAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CZombieAttack::IsPotentiallyChaseable()");
+		hdl_CHeadlessHatmanAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CHeadlessHatmanAttack::IsPotentiallyChaseable()");
+		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack::IsPotentiallyChaseable()");
+		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss::FindClosestVisibleVictim()");
+		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer::ApplyGenericPushbackImpulse()");
+		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::ValidTargetPlayer()");
+		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::FoundTarget()");
 		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
-		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun_AllowedToHealTarget");
+		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun::AllowedToHealTarget()");
+		hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookCreateFromConf(pvpfundata, "CTFProjectile_HealingBolt::ImpactTeamPlayer()");
+		hdl_CTFPlayerClassShared_SetCustomModel = DHookCreateFromConf(pvpfundata, "CTFPlayerClassShared::SetCustomModel()");
+		offset_CTFPlayer_m_PlayerClass = pvpfundata.GetOffset("CTFPlayer::m_PlayerClass");
 		delete pvpfundata;
 	}
 }
@@ -93,6 +101,16 @@ void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CWeaponMedigun::AllowedToHealTarget(CBaseEntity*). Medic can grief PvP duels!");
 	}
+	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && !detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer) {
+		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer = DHookEnableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
+	} else {
+		PrintToServer("Could not hook CTFProjectile_HealingBolt::ImpactTeamPlayer(CBaseEntity*). Medic can grief PvP duels!");
+	}
+	if (hdl_CTFPlayerClassShared_SetCustomModel != INVALID_HANDLE && !detoured_CTFPlayerClassShared_SetCustomModel) {
+		detoured_CTFPlayerClassShared_SetCustomModel = DHookEnableDetour(hdl_CTFPlayerClassShared_SetCustomModel, true, Detour_CTFPlayerClassShared_SetCustomModel);
+	} else {
+		PrintToServer("Could not hook CTFPlayerClassShared::SetCustomModel(). Players can hide their pvp state with vanity models!");
+	}
 }
 void DHooksDetach() {
 	if (hdl_INextBot_IsEnemy != INVALID_HANDLE && detoured_INextBot_IsEnemy)
@@ -113,6 +131,10 @@ void DHooksDetach() {
 		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && detoured_CWeaponMedigun_AllowedToHealTarget)
 		detoured_CWeaponMedigun_AllowedToHealTarget ^= DHookDisableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
+	if (hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer != INVALID_HANDLE && detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer)
+		detoured_CTFProjectile_HealingBolt_ImpactTeamPlayer ^= DHookDisableDetour(hdl_CTFProjectile_HealingBolt_ImpactTeamPlayer, false, Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer);
+	if (hdl_CTFPlayerClassShared_SetCustomModel != INVALID_HANDLE && detoured_CTFPlayerClassShared_SetCustomModel)
+		detoured_CTFPlayerClassShared_SetCustomModel ^= DHookDisableDetour(hdl_CTFPlayerClassShared_SetCustomModel, true, Detour_CTFPlayerClassShared_SetCustomModel);
 }
 
 // this dhook simply makes bots ignore players that dont want to pvp
@@ -228,12 +250,50 @@ public MRESReturn Detour_CWeaponMedigun_AllowedToHealTarget(int weapon, DHookRet
 	if (!(1<=medic<=MaxClients))
 		return MRES_Ignored; //no owner?!
 	
-	if (IsGlobalPvP(medic) && IsGlobalPvP(target))
-		return MRES_Ignored; //healing is allowed in global pvp
+	if (IsGlobalPvP(medic) == IsGlobalPvP(target))
+		return MRES_Ignored; //healing is allowed if both are (not) in global pvp at the same time
 	
 	clientInvalidHealNotif[medic] = true;
 	hReturn.Value = false;
 	return MRES_Supercede;
+}
+
+public MRESReturn Detour_CTFProjectile_HealingBolt_ImpactTeamPlayer(int healingBolt, DHookParam hParams) {
+	int weapon = GetEntPropEnt(healingBolt, Prop_Send, "m_hOriginalLauncher");
+	if (!IsValidEntity(weapon)) return MRES_Ignored; //no weapon?
+	int medic = GetEntPropEnt(weapon, Prop_Send, "m_hOwnerEntity");
+	int target = DHookGetParam(hParams, 1);
+	
+	if (!(1<=medic<=MaxClients) || !IsClientInGame(medic) || !(1<=target<=MaxClients))
+		return MRES_Supercede; //projectile owner dced until it hit, or target not a player, dont heal
+	
+	if (IsGlobalPvP(medic) == IsGlobalPvP(target))
+		return MRES_Ignored; //healing is allowed if both are (not) in global pvp at the same time
+	
+	EmitSoundToClient(medic, PVP_HEALBLOCK_BOLT, SOUND_FROM_PLAYER);
+	clientInvalidHealNotif[medic] = true;
+	return MRES_Supercede;
+}
+
+public MRESReturn Detour_CTFPlayerClassShared_SetCustomModel(Address pThis) {
+	int client = UTIL_FindPlayerForClass(pThis);
+	if (!(1<=client<=MaxClients) || !IsClientInGame(client)) return MRES_Ignored;
+	if (!clientCustomModelPostRequested[client]) {
+		clientCustomModelPostRequested[client]=true;
+		RequestFrame(OnClientModelChanged, GetClientUserId(client));
+	}
+	return MRES_Ignored;
+}
+void OnClientModelChanged(int userid) {
+	int client = GetClientOfUserId(userid);
+	if (!client || !IsClientInGame(client)) return;
+	clientCustomModelPostRequested[client]=false;
+	if (!IsPlayerModelValid(client)) {
+		SetGlobalPvP(client, false);
+	} else {
+		clientForceUpdateParticle[client] = true;
+		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
+	}
 }
 
 //keep as simple and quick as possible
@@ -252,3 +312,12 @@ public Action CH_PassFilter(int ent1, int ent2, bool &result) {
 	return Plugin_Continue;
 }
 
+/** look up the player for a CTFPlayerClassShared instance.  */
+static int UTIL_FindPlayerForClass(Address sharedClass) {
+	for (int client=1; client<=MaxClients; client++) {
+		if (!IsClientInGame(client)) continue;
+		Address clientSharedClasss = GetEntityAddress(client)+view_as<Address>(offset_CTFPlayer_m_PlayerClass);
+		if (clientSharedClasss == sharedClass) return client;
+	}
+	return 0;
+}

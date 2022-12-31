@@ -258,4 +258,8 @@
 	{
 		"en"	"{darkviolet}[PvP]{default} Healing players is only allowed if both are in {goldenrod}Global PvP{default}!"
 	}
+	"Model invalid for global pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You {crimson}can not{default} participate in {goldenrod}Global PvP{default} using a vanity model"
+	}
 }
