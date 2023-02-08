@@ -291,7 +291,7 @@ void OnClientModelChanged(int userid) {
 	if (!IsPlayerModelValid(client)) {
 		SetGlobalPvP(client, false);
 	} else {
-		clientForceUpdateParticle[client] = true;
+		if (usePvPParticle) clientForceUpdateParticle[client] = true;
 		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	}
 }
