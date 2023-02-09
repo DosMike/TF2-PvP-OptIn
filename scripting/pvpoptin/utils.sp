@@ -77,7 +77,7 @@ void UpdatePvPParticles(int client) {
 	if (TF2_IsPlayerInCondition(client, TFCond_Disguised)) effectiveClass = view_as<TFClassType>(GetEntProp(client, Prop_Send, "m_nDisguiseClass"));
 	if (effectiveClass == TFClass_Unknown) effectiveClass = TF2_GetPlayerClass(client);
 	
-	if (tmask != clientParticleAttached[client] || clientForceUpdateParticle[client]) {
+	if (tmask != clientParticleAttached[client] && clientForceUpdateParticle[client]) {
 		clientForceUpdateParticle[client] = false;
 		// if particles tunred off for some clients, we have to restart them
 		// we will also simply restart them for everyone if some new gets to see it
