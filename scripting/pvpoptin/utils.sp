@@ -6,11 +6,9 @@
  #error Please compile the main file
 #endif
 
-#if SOURCEMOD_V_MAJOR == 1 && SOURCEMOD_V_MINOR <= 10
-#include "pvpoptin/common.sp"
-#else //pretty sure this got fixed in sm 1.11
 #include "common.sp"
-#endif
+
+static TFClassType disguiseClass[MAXPLAYERS+1];
 
 void SetPlayerColor(int client, int r=255, int g=255, int b=255, int a=255) {
 	for (int entity=1; entity<2048; entity++) {
@@ -31,7 +29,7 @@ public Action Timer_EverySecond(Handle timer) {
 			clientSpawnKillScore[client] -= 1;
 		if (clientInvalidHealNotif[client]) {
 			clientInvalidHealNotif[client] = false;
-			if (Client_IsIngame(client) && !IsFakeClient(client) && GetClientTime(client) - clientInvalidHealNotifLast[client] > 5.0) {
+			if (IsClientInGame(client) && !IsFakeClient(client) && GetClientTime(client) - clientInvalidHealNotifLast[client] > 5.0) {
 				clientInvalidHealNotifLast[client] = GetClientTime(client);
 				CPrintToChat(client, "%t", "Healing only allowed in global PvP");
 			}
@@ -44,7 +42,7 @@ public Action Timer_EverySecond(Handle timer) {
 public Action Timer_PvPParticles(Handle timer) {
 	if (usePvPParticle) {
 		for (int client=1;client<=MaxClients;client++) {
-			if (Client_IsIngame(client) && IsPlayerAlive(client))
+			if (IsClientInGame(client) && IsPlayerAlive(client))
 				UpdatePvPParticles(client);
 		}
 	}
@@ -53,12 +51,12 @@ public Action Timer_PvPParticles(Handle timer) {
 }
 void UpdatePvPParticles(int client) {
 	int targets[MAXPLAYERS], tcount, tmask;
-	if (!Client_IsIngame(client)) return;
+	if (!IsClientInGame(client)) return;
 	if (!TF2_IsPlayerInCondition(client, TFCond_Cloaked)) {
 		if (IsGlobalPvP(client)) {
 			for (int c=1;c<=MaxClients;c++) {
 				if( //c != client &&
-					Client_IsIngameAuthorized(c) )
+					IsClientInGame(c) )
 					targets[tcount++]=c;
 			}
 			tmask = -1; //visible to all
@@ -73,31 +71,47 @@ void UpdatePvPParticles(int client) {
 		}
 	}
 	
-	TFClassType effectiveClass;
-	if (TF2_IsPlayerInCondition(client, TFCond_Disguised)) effectiveClass = view_as<TFClassType>(GetEntProp(client, Prop_Send, "m_nDisguiseClass"));
-	if (effectiveClass == TFClass_Unknown) effectiveClass = TF2_GetPlayerClass(client);
+	if (TF2_IsPlayerInCondition(client, TFCond_Disguised)) {
+		TFClassType effectiveClass;
+		effectiveClass = view_as<TFClassType>(GetEntProp(client, Prop_Send, "m_nDisguiseClass"));
+		if (effectiveClass == TFClass_Unknown) effectiveClass = TF2_GetPlayerClass(client);
+		if (effectiveClass != disguiseClass[client]) {
+			disguiseClass[client] = effectiveClass;
+			clientParticleAttached[client] = 0; //changeing disguise nukes particle effects
+		}
+	}
 	
 	if (tmask != clientParticleAttached[client] || clientForceUpdateParticle[client]) {
-		clientForceUpdateParticle[client] = false;
 		// if particles tunred off for some clients, we have to restart them
 		// we will also simply restart them for everyone if some new gets to see it
-		if (tmask==0 || (tmask ^ clientParticleAttached[client]) & clientParticleAttached[client]) {// check for "falling edges" -> was set and changed
+		if (tmask==0/* || tmask != clientParticleAttached[client]*/) {// check for "falling edges" -> was set and changed
 			ParticleEffectStop(client);
 		}
 		// just restart the particle for everyone that can see it (will "blink" shadow if it was already playing)
 		if (tmask) {
-			int attach_point = LookupEntityAttachment(client, "head");
+			int attach_point;
+			if (!TF2_IsPlayerInCondition(client, TFCond_Disguised) && !TF2_IsPlayerInCondition(client, TFCond_Disguising)) {
+				// disguised players have their head at their feet? something is whack with that
+				attach_point = LookupEntityAttachment(client, "head");
+			}
 			ParticleAttachment_t attach_mode = attach_point ? PATTACH_POINT_FOLLOW : PATTACH_ABSORIGIN_FOLLOW;
 			float angles[3];
 			float zero[3];
 			float offset[3]={0.0, 0.0, PVP_PARTICLE_OFFSET};
-			if (attach_point == 0) offset[2] += 80.0; //pull up roughly to where the head would be
+			if (attach_point == 0) {
+				//pull up roughly to where the head would be
+				GetClientMaxs(client, offset);
+				offset[0] = offset[1] = 0.0;
+				offset[2] += PVP_PARTICLE_OFFSET;
+				GetClientAbsOrigin(client, zero);
+			}
 			GetClientEyeAngles(client, angles);
 			TE_StartParticle(PVP_PARTICLE,zero,offset,angles,client,attach_mode,attach_point,true);
 			TE_Send(targets, tcount);
 		}
 		clientParticleAttached[client] = tmask;
 	}
+	clientForceUpdateParticle[client] = false;
 }
 void ParticleEffectStop(int entity) {
 	SetVariantString("ParticleEffectStop");
@@ -228,4 +242,67 @@ Handle FindPluginByName(const char[] pluginName, const char[] pluginAuthor=NULL_
  */
 bool IsPlayerModelValid(int player) {
 	return LookupEntityAttachment(player, "head") > 0;
+}
+
+bool IsValidClient(int client) {
+	return (1<=client<=MaxClients) && IsClientInGame(client);
+}
+
+// ===== From SMLib, full credit to those guys =====
+
+/*
+ * Rewrite of FindStringIndex, because in my tests
+ * FindStringIndex failed to work correctly.
+ * Searches for the index of a given string in a string table.
+ *
+ * @param tableidx		A string table index.
+ * @param str			String to find.
+ * @return				String index if found, INVALID_STRING_INDEX otherwise.
+ */
+stock int FindStringIndex2(int tableidx, const char[] str)
+{
+	char buf[1024];
+
+	int numStrings = GetStringTableNumStrings(tableidx);
+	for (int i=0; i < numStrings; i++) {
+		ReadStringTable(tableidx, i, buf, sizeof(buf));
+
+		if (StrEqual(buf, str)) {
+			return i;
+		}
+	}
+
+	return INVALID_STRING_INDEX;
+}
+
+/*
+ * Precaches the given particle system.
+ * It's best to call this OnMapStart().
+ * Code based on Rochellecrab's, thanks.
+ *
+ * @param particleSystem	Name of the particle system to precache.
+ * @return					Returns the particle system index, INVALID_STRING_INDEX on error.
+ */
+stock int PrecacheParticleSystem(const char[] particleSystem)
+{
+	static int particleEffectNames = INVALID_STRING_TABLE;
+
+	if (particleEffectNames == INVALID_STRING_TABLE) {
+		if ((particleEffectNames = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE) {
+			return INVALID_STRING_INDEX;
+		}
+	}
+
+	int index = FindStringIndex2(particleEffectNames, particleSystem);
+	if (index == INVALID_STRING_INDEX) {
+		int numStrings = GetStringTableNumStrings(particleEffectNames);
+		if (numStrings >= GetStringTableMaxStrings(particleEffectNames)) {
+			return INVALID_STRING_INDEX;
+		}
+
+		AddToStringTable(particleEffectNames, particleSystem);
+		index = numStrings;
+	}
+
+	return index;
 }

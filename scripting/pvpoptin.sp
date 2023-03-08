@@ -3,7 +3,6 @@
 #include <sdkhooks>
 #include <clientprefs>
 
-#include <smlib>
 #include <morecolors>
 #include <collisionhook>
 #include <dhooks>
@@ -13,7 +12,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "22w51a"
+#define PLUGIN_VERSION "23w08a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -168,7 +167,7 @@ public void OnAllPluginsLoaded() {
 public void OnPluginEnd() {
 	DHooksDetach();
 	for (int client=1;client<=MaxClients;client++) {
-		if (Client_IsIngameAuthorized(client)) {
+		if (IsClientInGame(client) && IsClientAuthorized(client)) {
 			ParticleEffectStop(client);
 		}
 	}
@@ -250,7 +249,7 @@ void UpdateActiveState(eGameState gameState) {
 			DHooksDetach();
 		}
 		for (int i=1;i<MaxClients;i++) {
-			if (Client_IsIngame(i))
+			if (IsClientInGame(i))
 				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 		}
 	}
@@ -423,7 +422,7 @@ public int HandlePvPCookieMenu(Menu menu, MenuAction action, int param1, int par
 bool TargetSelector_PVP(const char[] pattern, ArrayList clients) {
 	bool invert = pattern[1]=='!';
 	for (int i=1;i<=MaxClients;i++) {
-		if (Client_IsIngame(i)) {
+		if (IsClientInGame(i)) {
 			if (IsGlobalPvP(i) ^ invert) {
 				clients.Push(i);
 			}
@@ -565,7 +564,7 @@ static void ShowPlayerPairPvPMenu(int client) {
 	menu.SetTitle("%T", "Pick player for pvp", client);
 	char buid[6], bnick[65];
 	for (int i=1;i<MaxClients;i++) {
-		if (i==client || !Client_IsIngame(i)) continue;
+		if (i==client || !IsClientInGame(i)) continue;
 		Format(buid, sizeof(buid), "%d", GetClientUserId(i));
 		Format(bnick, sizeof(bnick), "%N", i);
 		menu.AddItem(buid, bnick);
@@ -581,7 +580,7 @@ public int HandlePickPlayerMenu(Menu menu, MenuAction action, int param1, int pa
 		char buid[6];
 		menu.GetItem(param2, buid, sizeof(buid));
 		int target = GetClientOfUserId(StringToInt(buid));
-		if (!Client_IsIngame(target)) {
+		if (!IsClientInGame(target)) {
 			CPrintToChat(param1, "%t", "Player no longer available");
 			ShowPlayerPairPvPMenu(param1);
 		} else {
@@ -605,7 +604,7 @@ public Action Command_ForcePvP(int client, int args) {
 			if (pvpon) globalPvP[0] |= State_Forced;
 			else globalPvP[0] &=~ State_Forced;
 			for (int i=1;i<=MaxClients;i++) {
-				if (!Client_IsIngame(i) || IsFakeClient(i)) continue;
+				if (!IsClientInGame(i) || IsFakeClient(i)) continue;
 				if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 				if (!pvpon) globalPvP[i] &=~ State_Forced; //turn off previously individually set flags
 				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
@@ -627,7 +626,7 @@ public Action Command_ForcePvP(int client, int args) {
 			} else {
 				for (int i;i<matches;i++) {
 					int player = target[i];
-					if (!Client_IsIngame(player)) continue;
+					if (!IsClientInGame(player)) continue;
 					if (clientPvPBannedUntil[client] > GetTime()) continue; //is banned
 					if (pvpon) {
 						globalPvP[player] |= State_Forced;
@@ -671,7 +670,7 @@ public Action Command_Mirror(int client, int args) {
 		} else {
 			for (int i;i<matches;i++) {
 				int player = target[i];
-				if (!Client_IsIngame(i)) continue;
+				if (!IsClientInGame(i)) continue;
 				if (force) {
 					mirrorDamage[player] |= State_Forced;
 					CPrintToChat(player, "%t","Someone forced your mirror damage", client);
@@ -745,7 +744,7 @@ static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 		CPrintToChat(requester, "%t", "There is a pending request with menus");
 	} else {
 		if (Notify_OnPairInvited(requester, requestee)) {
-			if (Client_IsValid(pairPvPrequest[requester])) {
+			if (IsValidClient(pairPvPrequest[requester])) {
 				CPrintToChat(pairPvPrequest[requester], "%t", "Someone cancelled pvp request for another", requester);
 				CPrintToChat(requester, "%t", "You cancelled pvp request", pairPvPrequest[requester]);
 			}
@@ -763,7 +762,7 @@ static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 static void DeclinePairPvP(int requestee, bool CloseMenus=true) {
 	int declined,someRequester=0;
 	for (int requester=1; requester<=MaxClients; requester++) {
-		if (Client_IsValid(requester) && pairPvPrequest[requester]==requestee) {
+		if (IsValidClient(requester) && pairPvPrequest[requester]==requestee) {
 			CPrintToChat(requester, "%t", "Your pvp request was declined", requestee);
 			if (CloseMenus && depNativeVotes && pairPvPRequestMenu == 1) ForceEndNativeVote(requester);
 			pairPvPrequest[requester] = 0;
@@ -1151,11 +1150,11 @@ public Action OnBuildingTakeDamage(int victim, int &attacker, int &inflictor, fl
 
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
-	if (!Client_IsValid(source))
+	if (!IsValidClient(source))
 		return Plugin_Continue;
 
 	int owner = GetPlayerEntity(victim);
-	if (Client_IsValid(owner) && !CanClientsPvP(source, owner)) {
+	if (IsValidClient(owner) && !CanClientsPvP(source, owner)) {
 		damage = 0.0;
 		return Plugin_Handled;
 	}
@@ -1170,7 +1169,7 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 	int pvpGrant;
 	//Sometimes the attacker won't be a player directly, try to resolve this
 	int source = GetPlayerDamageSource(attacker, inflictor);
-	if (!Client_IsValid(source)) { //didnt bring your hazardous environment suit?
+	if (!IsValidClient(source)) { //didnt bring your hazardous environment suit?
 		return Plugin_Continue;
 #if defined _mirrordamage_included
 	} else if (depMirrorDamage && (MirrorDamage_Status(victim, MirrorTaken) || MirrorDamage_Status(source, MirrorDealt))) {
@@ -1202,7 +1201,7 @@ public void OnClientTakeDamagePost(int victim, int attacker, int inflictor, floa
 	//tracking spawnkilling here, so only react to human attackers and when the victim died
 	if (!isActive)
 		return;
-	if (!Client_IsIngame(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0 || attacker == victim) {
+	if (!IsValidClient(attacker) || IsFakeClient(attacker) || GetClientHealth(victim)>0 || attacker == victim) {
 		return;
 	}
 	if (!IsFakeClient(victim)) { //again, bots don't leave pvp
@@ -1250,7 +1249,10 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 	//hide particle effect when cloaking
 	if (usePvPParticle) {
 		if (condition == TFCond_Cloaked) ParticleEffectStop(client);
-		if (condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+		if (condition == TFCond_Disguised) {
+			clientForceUpdateParticle[client] = true;
+			UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
+		}
 	}
 
 	if ((at = ArrayFind(condition, pvpConditions, sizeof(pvpConditions)))<0)
@@ -1266,12 +1268,15 @@ public void TF2_OnConditionAdded(int client, TFCond condition) {
 
 public void TF2_OnConditionRemoved(int client, TFCond condition) {
 	if (!isActive) return;
-	if (usePvPParticle && condition == TFCond_Disguised) clientForceUpdateParticle[client] = true;
+	if (usePvPParticle && condition == TFCond_Disguised) {
+		clientForceUpdateParticle[client] = true;
+		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
+	}
 }
 
 
 void UpdateEntityFlagsGlobalPvP(int client, bool pvp) {
-	if (!Client_IsIngame(client)) return;
+	if (!IsClientInGame(client)) return;
 	int ci;
 	if (TF2_GetClientTeam(client)==TFTeam_Blue) ci++;
 	if (!pvp && isActive) ci+=2;

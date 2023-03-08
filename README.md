@@ -135,15 +135,14 @@ There's also a settings menu to toggle global PvP and pair PvP.
 ### Dependencies:
 
 Install the following required plugins:
-- [DHooks](https://forums.alliedmods.net/showpost.php?p=2588686&postcount=589)
 - [CollisionHook](https://github.com/Adrianilloo/Collisionhook/releases)
 - [TF Utils](https://github.com/nosoop/SM-TFUtils/releases)
 - [NativeVotes](https://github.com/sapphonie/sourcemod-nativevotes-updated) (Optional)
 
-**Note:** DHooks was added to SM 1.11, you might not need to download it in the future.
-
 The CollisionHook branch I linked is prebuilt, but the **gamedata might be outdate**.
 Check [this file](https://github.com/Adrianilloo/Collisionhook/blob/master/extra/collisionhook.txt), it should be up to date.
 
-If you want to compile the plugin you will need [SMLib's transitional syntax branch](https://github.com/bcserv/smlib/tree/transitional_syntax) and [MoreColors](https://raw.githubusercontent.com/DoctorMcKay/sourcemod-plugins/master/scripting/include/morecolors.inc)
+Compiling the plugin requires [MoreColors](https://raw.githubusercontent.com/DoctorMcKay/sourcemod-plugins/master/scripting/include/morecolors.inc)
+
+Note: uses two functions from [SMLib's transitional syntax branch](https://github.com/bcserv/smlib/tree/transitional_syntax) (in utils.sp)
 

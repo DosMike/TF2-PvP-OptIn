@@ -6,11 +6,7 @@
  #error Please compile the main file
 #endif
 
-#if SOURCEMOD_V_MAJOR == 1 && SOURCEMOD_V_MINOR <= 10
-#include "pvpoptin/common.sp"
-#else //pretty sure this got fixed in sm 1.11
 #include "common.sp"
-#endif
 
 static ConVar cvar_Version;
 static ConVar cvar_JoinForceState;
@@ -232,7 +228,7 @@ public void OnCVarChanged_PlayerTaint(ConVar convar, const char[] oldValue, cons
 	playerStateColors[ci][3] = a;
 	//update clients
 	for (int i=1;i<=MaxClients;i++) {
-		if (Client_IsIngame(i)&&IsPlayerAlive(i)) {
+		if (IsClientInGame(i)&&IsPlayerAlive(i)) {
 			UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 		}
 	}
@@ -240,9 +236,10 @@ public void OnCVarChanged_PlayerTaint(ConVar convar, const char[] oldValue, cons
 public void OnCVarChanged_UsePvPParticle(ConVar convar, const char[] oldValue, const char[] newValue) {
 	if (!(usePvPParticle = convar.BoolValue)) {
 		for (int client=1;client<=MaxClients;client++) {
-			if (Client_IsIngame(client) && GetClientTeam(client)>1) {
+			if (IsClientInGame(client) && GetClientTeam(client)>1) {
 				ParticleEffectStop(client);
 			}
+			clientParticleAttached[client] = false;
 		}
 	}
 }

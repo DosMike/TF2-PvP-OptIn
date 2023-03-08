@@ -46,14 +46,14 @@ public any Native_IsActive(Handle plugin, int numParams) {
 //native bool pvp_GetPlayerGlobal(int client, pvpEnabledState& pvpState = PVPState_Disabled);
 public any Native_GetPlayerGlobal(Handle plugin, int numParams) {
 	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	if (!IsClientInGame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
 	SetNativeCellRef(2, globalPvP[client]);
 	return IsGlobalPvP(client);
 }
 //native void pvp_SetPlayerGlobal(int client, int value=-1);
 public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
 	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	if (!IsClientInGame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
 	int value = GetNativeCell(2);
 	bool wasGlobalPvP = IsGlobalPvP(client);
 	
@@ -75,8 +75,8 @@ public any Native_SetPlayerGlobal(Handle plugin, int numParams) {
 public any Native_GetPlayerPair(Handle plugin, int numParams) {
 	int client1 = GetNativeCell(1);
 	int client2 = GetNativeCell(2);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg2 (%i)", client2);
+	if (!IsClientInGame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client1);
+	if (!IsClientInGame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg2 (%i)", client2);
 	return pairPvP[client1][client2];
 }
 //native int pvp_GetPlayersPaired(int client, int[] targets, int max_targets);
@@ -85,7 +85,7 @@ public any Native_GetPlayersPaired(Handle plugin, int numParams) {
 	int max = GetNativeCell(3);
 	int[] hits = new int[max];
 	int results;
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client);
+	if (!IsClientInGame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame for arg1 (%i)", client);
 	for (int other=1; other<=MaxClients; other+=1) {
 		if (pairPvP[client][other]) {
 			hits[results] = other;
@@ -101,8 +101,8 @@ public any Native_ForcePlayerPair(Handle plugin, int numParams) {
 	int client1 = GetNativeCell(1);
 	int client2 = GetNativeCell(2);
 	bool force = GetNativeCell(3);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	if (!IsClientInGame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
+	if (!IsClientInGame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
 	bool oldValue = pairPvP[client1][client2];
 	if (oldValue != force && client1!=client2 && Notify_OnPairChanged(client1, client2, force)) {
 		SetPairPvP(client1,client2,force);
@@ -113,21 +113,21 @@ public any Native_ForcePlayerPair(Handle plugin, int numParams) {
 public any Native_CanAttack(Handle plugin, int numParams) {
 	int client1 = GetNativeCell(1);
 	int client2 = GetNativeCell(2);
-	if (!Client_IsIngame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
-	if (!Client_IsIngame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
+	if (!IsClientInGame(client1)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg1 (%i)", client1);
+	if (!IsClientInGame(client2)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client inde or client not ingame for arg2 (%i)", client2);
 	return CanClientsPvP(client1, client2);
 }
 //native bool pvp_IsMirrored(int client, pvpEnabledState& pvpState = PVPState_Disabled );
 public any Native_IsMirrored(Handle plugin, int numParams) {
 	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	if (!IsClientInGame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
 	SetNativeCellRef(2, mirrorDamage[client]);
 	return IsMirrored(client);
 }
 //native void pvp_SetMirrored(int client, int value=-1);
 public any Native_SetMirrored(Handle plugin, int numParams) {
 	int client = GetNativeCell(1);
-	if (!Client_IsIngame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
+	if (!IsClientInGame(client)) ThrowNativeError(SP_ERROR_PARAM, "Invalid client index or client not ingame (%i)", client);
 	int value = GetNativeCell(2);
 	
 	eEnabledState sflag = State_Disabled;
@@ -141,9 +141,9 @@ public any Native_SetMirrored(Handle plugin, int numParams) {
 //native void pvp_BanPlayer(int admin, int target, int time, const char[] reason);
 public any Native_BanPlayer(Handle plugin, int numParams) {
 	int admin = GetNativeCell(1);
-	if (!Client_IsIngame(admin)) ThrowNativeError(SP_ERROR_PARAM, "Invalid admin index or admin not ingame (%i)", admin);
+	if (!IsClientInGame(admin)) ThrowNativeError(SP_ERROR_PARAM, "Invalid admin index or admin not ingame (%i)", admin);
 	int target = GetNativeCell(2);
-	if (!Client_IsIngame(target) || IsFakeClient(target)) ThrowNativeError(SP_ERROR_PARAM, "Invalid target index, target not ingame or target is bot (%i)", target);
+	if (!IsClientInGame(target) || IsFakeClient(target)) ThrowNativeError(SP_ERROR_PARAM, "Invalid target index, target not ingame or target is bot (%i)", target);
 	int minutes = GetNativeCell(3);
 	if (minutes < 1) ThrowNativeError(SP_ERROR_PARAM, "Ban time has to be positive");
 	char reason[256];
@@ -157,9 +157,9 @@ public any Native_BanPlayer(Handle plugin, int numParams) {
 //native void pvp_BanPlayer(int admin, int target, int time, const char[] reason);
 public any Native_UnbanPlayer(Handle plugin, int numParams) {
 	int admin = GetNativeCell(1);
-	if (!Client_IsIngame(admin)) ThrowNativeError(SP_ERROR_PARAM, "Invalid admin index or admin not ingame (%i)", admin);
+	if (!IsClientInGame(admin)) ThrowNativeError(SP_ERROR_PARAM, "Invalid admin index or admin not ingame (%i)", admin);
 	int target = GetNativeCell(2);
-	if (!Client_IsIngame(target)) ThrowNativeError(SP_ERROR_PARAM, "Invalid target index, target not ingame or target is bot (%i)", target);
+	if (!IsClientInGame(target)) ThrowNativeError(SP_ERROR_PARAM, "Invalid target index, target not ingame or target is bot (%i)", target);
 	if (IsFakeClient(target) || GetTime() >= clientPvPBannedUntil[target]) return 0; //not banned
 	
 	BanClientPvP(admin, target, 0, "");

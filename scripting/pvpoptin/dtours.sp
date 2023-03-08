@@ -141,7 +141,7 @@ void DHooksDetach() {
 public MRESReturn Detour_INextBot_IsEnemy(Address pThis, DHookReturn hReturn, DHookParam hParams) {
 	int target = hParams.Get(1);
 	int player = GetPlayerEntity(target);
-	if (Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0)) {
+	if (IsValidClient(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0)) {
 		hReturn.Value = false;
 		return MRES_Override;
 	}
@@ -156,7 +156,7 @@ public MRESReturn Detour_CZombieAttack_IsPotentiallyChaseable(DHookReturn hRetur
 	bool blocked;
 	if (targetMode == PvA_Zombies_Always) return MRES_Ignored;
 	else if (targetMode != PvA_Zombies_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
+	else blocked = IsValidClient(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
 	if (blocked) {
 		hReturn.Value = false;
 		return MRES_Override;
@@ -171,7 +171,7 @@ public MRESReturn Detour_BossAttack_IsPotentiallyChaseable(DHookReturn hReturn, 
 	bool blocked;
 	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
 	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
+	else blocked = IsValidClient(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
 	if (blocked) {
 		hReturn.Value = false;
 		return MRES_Override;
@@ -185,7 +185,7 @@ public MRESReturn Detour_CEyeballBoss_FindClosestVisibleVictim(int eyeball, DHoo
 	bool blocked;
 	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
 	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = Client_IsValid(target) && !IsGlobalPvP(target) && !IsGlobalPvP(0);
+	else blocked = IsValidClient(target) && !IsGlobalPvP(target) && !IsGlobalPvP(0);
 	if (blocked) {
 		hReturn.Value = INVALID_ENT_REFERENCE;
 		return MRES_Override;
@@ -197,7 +197,7 @@ public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHook
 //	float impulse[3]; hParams.GetVector(1, impulse);
 	if (hParams.IsNull(2)) return MRES_Ignored;
 	int source = hParams.Get(2);
-	if (Client_IsValid(source) && !CanClientsPvP(source,player))
+	if (IsValidClient(source) && !CanClientsPvP(source,player))
 		return MRES_Supercede;//don't call original to apply force
 	return MRES_Ignored;
 }
@@ -207,7 +207,7 @@ public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookR
 	if (hParams.IsNull(1)) return MRES_Ignored;
 	int target = hParams.Get(1);
 	int engi = GetPlayerEntity(building);
-	if (Client_IsValid(target) && Client_IsValid(engi) && !CanClientsPvP(engi,target)) {
+	if (IsValidClient(target) && IsValidClient(engi) && !CanClientsPvP(engi,target)) {
 		hReturn.Value = false;
 		return MRES_Override; //idk what whacky stuff valve is doing there
 	}
@@ -227,17 +227,17 @@ public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam h
 		ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
 		if (mode == PvA_Zombies_Always) blocked = false;
 		else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
-		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+		else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
 	} else if (IsEntityBoss(classname)) {
 		//we are trying to target a boss, are we allowed to do at all?
 		ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
 		if (mode == PvA_Bosses_Always) blocked = false;
 		else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
-		else blocked = Client_IsValid(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+		else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
 	} else if (IsEntityBuilding(classname)) {
 		//hey ho, we target another building
 		int otherEngi = GetPlayerEntity(target);
-		blocked = Client_IsValid(otherEngi) && !CanClientsPvP(engi,otherEngi);
+		blocked = IsValidClient(otherEngi) && !CanClientsPvP(engi,otherEngi);
 	}
 	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
 }
@@ -291,7 +291,7 @@ void OnClientModelChanged(int userid) {
 	if (!IsPlayerModelValid(client)) {
 		SetGlobalPvP(client, false);
 	} else {
-		clientForceUpdateParticle[client] = true;
+		if (usePvPParticle) clientForceUpdateParticle[client] = true;
 		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
 	}
 }
@@ -299,15 +299,17 @@ void OnClientModelChanged(int userid) {
 //keep as simple and quick as possible
 //don't check result, that does NOT pass the previous result!
 public Action CH_PassFilter(int ent1, int ent2, bool &result) {
-	if (isActive && noCollideState && 1<=ent1<=MaxClients && 1<=ent2<=MaxClients) {
-		//pass 1, collision mod is on and we have clients
-		int team1 = GetClientTeam(ent1);
-		int team2 = GetClientTeam(ent2);
-		if (team1 != team2 && team1 > 1 && team2 > 1 && (noCollideState > 1 || !CanClientsPvP(ent1, ent2))) {
-			//pass2, clients are on different teams and can not pvp (or override): treat as same team (aka friendly)
-			result = false;
-			return Plugin_Changed;
-		}
+	if (!isActive || !noCollideState || !(1<=ent1<=MaxClients) || !(1<=ent2<=MaxClients))
+		return Plugin_Continue;
+	if (!IsClientInGame(ent1) || !IsClientInGame(ent2))
+		return Plugin_Continue;
+	//pass 1, collision mod is on and we have clients
+	int team1 = GetClientTeam(ent1);
+	int team2 = GetClientTeam(ent2);
+	if (team1 != team2 && team1 > 1 && team2 > 1 && (noCollideState > 1 || !CanClientsPvP(ent1, ent2))) {
+		//pass2, clients are on different teams and can not pvp (or override): treat as same team (aka friendly)
+		result = false;
+		return Plugin_Changed;
 	}
 	return Plugin_Continue;
 }
