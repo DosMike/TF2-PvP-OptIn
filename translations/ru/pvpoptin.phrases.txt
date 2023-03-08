@@ -1,0 +1,240 @@
+"Phrases"
+{
+	"Plugin now active"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Плагин включён! Удачной игры"
+	}
+	"Plugin now inactive"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Плагин выключен! Наслаждайтесь обычными убийствами"
+	}
+	"SettingsMenuTitle"
+	{
+		//will break the menu if too long (currently 356 chars ignoring changes in labels)
+		"ru"	"Настройки урона между друг-другом:\n \n'Игнорировать парную битву' не позволяет другим игрокам запрашивать урон по вам.\n'Зеркальный урон' нанесёт урон самому себе, если цель не имеет битву с вами.\n'Насмешка убивает меня' позволит другим игрокам убить вас с помощью насмешки независимо от состояния битвы между вами.\n'Разрешить малые эффекты' восстановит некоторые эффекты, пока вы не в битве.\n  (Эффекты: банкате, зломолоко, ...)\n "
+	}
+	"SettingsMenuGlobal"
+	{
+		"ru"	"Глобальная битва"
+	}
+	"SettingsMenuIgnorePair"
+	{
+		"ru"	"Игнорировать парную битву"
+	}
+	"SettingsMenuMirrorDamage"
+	{
+		"ru"	"Зеркальный урон"
+	}
+	"SettingsMenuTauntKills"
+	{
+		"ru"	"Насмешка убивает меня"
+	}
+	"SettingsMenuConditions"
+	{
+		"ru"	"Разрешить малые эффекты"
+	}
+	"Pick player for pvp"
+	{
+		"ru"	"Выбрать игрока для битвы"
+	}
+	"Bots can not use pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Извините, боты не могут использовать {azure}парную битву{default}!"
+	}
+	"Requester is Requestee"
+	{
+		"ru"	"Запросчик и получатель запроса не могут быть одним и тем же лицом"
+	}
+	"Someone disengaged pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} отказывается от битвы с вами"
+	}
+	"You disengaged pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы отказались от битвы с {1}"
+	}
+	"You disengaged all pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы отказались от участия во всех {azure}парных битвах{default}."
+	}
+	"You engaged pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы вошли в битву с {1}"
+	}
+	"You are both global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Сейчас вы оба в {goldenrod}глобальной битве{default}"
+	}
+	"Already requested pvp with"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы уже запросили битву с {1}"
+	}
+	"There is a pending request with menus"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Этот игрок уже подал запрос на битву"
+	}
+	"Someone cancelled pvp request for another"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} отменяет запрос, чтобы попросить кого-то другого"
+	}
+	"You cancelled pvp request"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы отменили свой предыдущий запрос с {1}"
+	}
+	"Someone requested pvp, confirm"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} хочет начать битву с вами, используйте {darkgray}/pvp {2}{default} для подтверждения"
+	}
+	"You requested pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы запросили битву с {1}."
+	}
+	"Vote Title PvP Request"
+	{
+		"ru"	"{1} хочет парную битву\nПринимаете?"
+	}
+	"Your pvp request was declined"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Ваш запрос {azure}парной битвы{default} с {1} был отклонён."
+	}
+	"You declined multiple pvp requests"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы отклонили {1} запроса(-ов) на {azure}парную битву{default}."
+	}
+	"You declined single pvp request"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы отклонили запрос {1} на {azure}парную битву{default}."
+	}
+	"Last pair pvp request too recent"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Пожалуйста, подождите {1} сек., прежде чем отправлять запросы на {azure}парную битву{default}."
+	}
+	"You have been banned from pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вам была выдана блокировка битв на {1} мин. (Причина: {2})"
+	}
+	"Spawn Killing is not allowed"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Поджидание на точке возрождения запрещено, прекратите!"
+	}
+	"Entered global pvp too recently"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы должны подождать {1} сек., чтобы выйти из {goldenrod}глобальной битвы{default}."
+	}
+	"Global pvp state on line1"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы {limegreen}ВКЛЮЧИЛИ {default}{goldenrod}глобальную битву{default}"
+	}
+	"Global pvp state on line2"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Другие игроки с {goldenrod}глобальной битвой{default} могут атаковать вас и быть атакованными в ответ."
+	}
+	"Global pvp state off line1"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы {crimson}ВЫКЛЮЧИЛИ {default}{goldenrod}глобальную битву{default}"
+	}
+	"Global pvp state off line2"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Наслаждайтесь миром, вы можете получать урон только через {azure}парную битву{default}."
+	}
+	"Hey there's also pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы можете запросить {azure}парную битву{default}, с помощью {darkgray}/pvp *игрок*{default}."
+	}
+	"You are ignoring pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Игроки больше не могут запрашивать {azure}парную битву{default} с вами."
+	}
+	"You are allowing pair pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Игроки могут снова запросить {azure}парную битву{default} с вами."
+	}
+	"Use command again to toggle ignore"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Используйте команду ещё раз, чтобы игнорировать дальнейшие запросы"
+	}
+	"Mirror Damage Enabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Урон, наносимый вами игрокам, не имеющими с вами битву, теперь отражается зеркально"
+	}
+	"Mirror Damage not Disabled, Forced"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Что-то включает зеркальный урон. Зеркальный урон будет действовать во время этого состояния."
+	}
+	"Mirror Damage Disabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Урон, наносимый игрокам, не имеющими с вами битву, больше не отражается зеркально"
+	}
+	"Taunt Kills Enabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Теперь другие игроки могут убить вас с помощью насмешки"
+	}
+	"Taunt Kills Disabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы больше не можете быть убиты насмешкой"
+	}
+	"Limited Conditions Enabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Игроки теперь могут накладывать на вас малые эффекты"
+	}
+	"Limited Conditions Disabled"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Малые эффекты блокируются вне битвы"
+	}
+	"Someone forced map pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} включил {goldenrod}глобальную битву{default} для карты"
+	}
+	"You forced map pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы включили {goldenrod}глобальную битву{default} для карты"
+	}
+	"Someone reset map pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} сбросил {goldenrod}глобальную битву{default} к вашим настройкам"
+	}
+	"You reset map pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы сбросили {goldenrod}глобальную битву{default} для всех"
+	}
+	"Someone forced your global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} включил вам {goldenrod}глобальную битву{default}"
+	}
+	"You forced someones global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы включили {goldenrod}глобальную битву{default} {1}"
+	}
+	"Someone reset your global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} сбросил вашу {goldenrod}глобальную битву{default} к вашим настройкам"
+	}
+	"You reset someones global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы сбросили {goldenrod}глобальную битву{default} {1}"
+	}
+	"Someone forced your mirror damage"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} включил вам зеркальный урон"
+	}
+	"You forced someones mirror damage"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы включили зеркальный урон {1}"
+	}
+	"Someone reset your mirror damage"
+	{
+		"ru"	"{darkviolet}[PvP]{default} {1} сбросил ваш зеркальный урон к вашим настройкам"
+	}
+	"You reset someones mirror damage"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы сбросили зеркальный урон {1}"
+	}
+	"Healing only allowed in global PvP"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Лечение игроков разрешено, только если оба находятся в {goldenrod}глобальной битве{default}!"
+	}
+	"Model invalid for global pvp"
+	{
+		"ru"	"{darkviolet}[PvP]{default} Вы {crimson}не можете{default} участвовать в {goldenrod}глобальной битве{default}, используя стильную модель"
+	}
+}
