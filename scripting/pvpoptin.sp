@@ -12,7 +12,7 @@
 #tryinclude <mirrordamage>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "23w08a"
+#define PLUGIN_VERSION "23w12a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -101,12 +101,19 @@ public void OnPluginStart() {
 
 	Plugin_SetupDHooks();
 
-	delete RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
-	delete RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
-	delete RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
-	delete RegClientCookie(COOKIE_TAUNTKILL, "Client is fine with being taunt-killed for funnies", CookieAccess_Private);
-	delete RegClientCookie(COOKIE_CONDITIONS, "Client is fine with being jarated, etc for funnies", CookieAccess_Private);
-	delete RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp> <Reason> if banned from pvp", CookieAccess_Private);
+	Handle tmp;
+	tmp = RegClientCookie(COOKIE_GLOBALPVP, "Client has opted into global PvP", CookieAccess_Private);
+	delete tmp;
+	tmp = RegClientCookie(COOKIE_IGNOREPVP, "Client wants to ignore pair PvP", CookieAccess_Private);
+	delete tmp;
+	tmp = RegClientCookie(COOKIE_MIRRORME, "Mirror all damage out of PvP back to self", CookieAccess_Private);
+	delete tmp;
+	tmp = RegClientCookie(COOKIE_TAUNTKILL, "Client is fine with being taunt-killed for funnies", CookieAccess_Private);
+	delete tmp;
+	tmp = RegClientCookie(COOKIE_CONDITIONS, "Client is fine with being jarated, etc for funnies", CookieAccess_Private);
+	delete tmp;
+	tmp = RegClientCookie(COOKIE_BANDATA, "Formatted <Timestamp> <Reason> if banned from pvp", CookieAccess_Private);
+	delete tmp;
 
 	RegConsoleCmd("sm_pvp", Command_TogglePvP, "Usage: [name|userid] - If you specify a user, request pair PvP, otherwise toggle global PvP");
 	RegConsoleCmd("sm_pvpinvite", Command_TogglePvP, "Usage: [name|userid] - Explicitly request pair PvP. Will open a pick player menu if no name is given");
@@ -298,37 +305,37 @@ public void OnClientCookiesCached(int client) {
 		return;
 	}
 	char buffer[128];
-	Handle cookie;
+	Cookie cookie;
 	if (joinForceState!=0) {
 		SetGlobalPvP(client, joinForceState<0);
-	} else if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+	} else if((cookie = Cookie.Find(COOKIE_GLOBALPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		bool pvp = view_as<bool>(StringToInt(buffer));
 		if (pvp) globalPvP[client] |= State_Enabled;
 		else globalPvP[client] &=~ State_Enabled;
 		UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
-		delete cookie;
 	}
-	if((cookie = FindClientCookie(COOKIE_IGNOREPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+	delete cookie;
+	if((cookie = Cookie.Find(COOKIE_IGNOREPVP)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		pairPvPignored[client] = view_as<bool>(StringToInt(buffer));
-		delete cookie;
 	}
-	if((cookie = FindClientCookie(COOKIE_MIRRORME)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+	delete cookie;
+	if((cookie = Cookie.Find(COOKIE_MIRRORME)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		bool mirror = view_as<bool>(StringToInt(buffer));
 		if (mirror) mirrorDamage[client] |= State_Enabled;
 		else mirrorDamage[client] &=~ State_Enabled;
-		delete cookie;
 	}
-	if((cookie = FindClientCookie(COOKIE_TAUNTKILL)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+	delete cookie;
+	if((cookie = Cookie.Find(COOKIE_TAUNTKILL)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		allowTauntKilled[client] = view_as<bool>(StringToInt(buffer));
-		delete cookie;
 	}
-	if((cookie = FindClientCookie(COOKIE_BANDATA)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
+	delete cookie;
+	if((cookie = Cookie.Find(COOKIE_BANDATA)) != null && GetClientCookie(client, cookie, buffer, sizeof(buffer)) && !StrEqual(buffer, "")) {
 		int read = StringToIntEx(buffer,clientPvPBannedUntil[client]);
 		clientPvPBannedUntil[client] *= 60;
 		strcopy(clientPvPBannedReason[client], sizeof(clientPvPBannedReason[]), buffer[read]);
-		delete cookie;
 		BanClientPvP(-1,client,0,"");//reload
 	}
+	delete cookie;
 }
 
 public void HandleCookieMenu(int client, CookieMenuAction action, any info, char[] buffer, int maxlen) {
@@ -917,7 +924,7 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		if (enterPvP) clientLatestPvPAction[client] = GetClientTime(client);
 	}
 	
-	Handle cookie;
+	Cookie cookie;
 	eEnabledState newState;
 	if (pvp) newState |= State_Enabled;
 	else newState &=~ State_Enabled;
@@ -936,10 +943,10 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		else if ((togglePvPAction & TGACT_OUT_RESPAWN)!=0) TF2_RespawnPlayer(client);
 	}
 
-	if((cookie = FindClientCookie(COOKIE_GLOBALPVP)) != null) {
+	if((cookie = Cookie.Find(COOKIE_GLOBALPVP)) != null) {
 		char value[2]="0";
 		if (pvp) value[0]='1';
-		SetClientCookie(client, cookie, value);
+		cookie.Set(client, value);
 		delete cookie;
 	}
 	UpdateEntityFlagsGlobalPvP(client, IsGlobalPvP(client));
@@ -950,12 +957,12 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 	return true;
 }
 static void SetPairPvPIgnored(int client, bool ignore) {
-	Handle cookie;
+	Cookie cookie;
 	pairPvPignored[client] = ignore;
-	if((cookie = FindClientCookie(COOKIE_IGNOREPVP)) != null) {
+	if((cookie = Cookie.Find(COOKIE_IGNOREPVP)) != null) {
 		char value[2]="0";
 		if (ignore) value[0]='1';
-		SetClientCookie(client, cookie, value);
+		cookie.Set(client, value);
 		delete cookie;
 	}
 	if (ignore) {
@@ -997,13 +1004,13 @@ bool IsMirrored(int client) {
 	return (mirrorDamage[client]!=State_Disabled && !(mirrorDamage[client]&State_ExternalOff));
 }
 static void SetMirroredState(int client, bool mirrored) {
-	Handle cookie;
+	Cookie cookie;
 	if (mirrored) mirrorDamage[client] |= State_Enabled;
 	else mirrorDamage[client] &=~ State_Enabled;
-	if((cookie = FindClientCookie(COOKIE_MIRRORME)) != null) {
+	if((cookie = Cookie.Find(COOKIE_MIRRORME)) != null) {
 		char value[2]="0";
 		if (mirrored) value[0]='1';
-		SetClientCookie(client, cookie, value);
+		cookie.Set(client, value);
 		delete cookie;
 	}
 	if (mirrored) CPrintToChat(client, "%t", "Mirror Damage Enabled");
@@ -1011,24 +1018,24 @@ static void SetMirroredState(int client, bool mirrored) {
 	else CPrintToChat(client, "%t", "Mirror Damage Disabled");
 }
 static void SetTauntKillable(int client, bool enabled) {
-	Handle cookie;
+	Cookie cookie;
 	allowTauntKilled[client] = enabled;
-	if((cookie = FindClientCookie(COOKIE_TAUNTKILL)) != null) {
+	if((cookie = Cookie.Find(COOKIE_TAUNTKILL)) != null) {
 		char value[2]="0";
 		if (enabled) value[0]='1';
-		SetClientCookie(client, cookie, value);
+		cookie.Set(client, value);
 		delete cookie;
 	}
 	if (enabled) CPrintToChat(client, "%t", "Taunt Kills Enabled");
 	else CPrintToChat(client, "%t", "Taunt Kills Disabled");
 }
 static void SetLimitedConditionsAllowed(int client, bool enabled) {
-	Handle cookie;
+	Cookie cookie;
 	allowLimitedConditions[client] = enabled;
-	if((cookie = FindClientCookie(COOKIE_CONDITIONS)) != null) {
+	if((cookie = Cookie.Find(COOKIE_CONDITIONS)) != null) {
 		char value[2]="0";
 		if (enabled) value[0]='1';
-		SetClientCookie(client, cookie, value);
+		cookie.Set(client, value);
 		delete cookie;
 	}
 	if (enabled) CPrintToChat(client, "%t", "Limited Conditions Enabled");
@@ -1062,7 +1069,6 @@ void BanClientPvP(int admin, int client, int time, const char[] reason) {
 			Format(buffer, sizeof(buffer), "%i %s", (clientPvPBannedUntil[client]+59)/60 /* round up */, clientPvPBannedReason[client]);
 			if (cookie != null) {
 				cookie.Set(client, buffer);
-				delete cookie;
 			}
 			Notify_OnBanAdded(admin, client, time, reason);
 		} else {
@@ -1070,10 +1076,10 @@ void BanClientPvP(int admin, int client, int time, const char[] reason) {
 			clientPvPBannedUntil[client] = 0;
 			if (cookie != null) {
 				cookie.Set(client, "");
-				delete cookie;
 			}
 			Notify_OnBanRemoved(admin, client);
 		}
+		delete cookie;
 	} else if (clientPvPBannedUntil[client]) {
 		if (GetTime() > clientPvPBannedUntil[client]) { //we loaded a ban, but the ban is over?
 			clientPvPBannedUntil[client] = 0;
