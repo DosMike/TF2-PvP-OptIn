@@ -262,4 +262,12 @@
 	{
 		"en"	"{darkviolet}[PvP]{default} You {crimson}can not{default} participate in {goldenrod}Global PvP{default} using a vanity model"
 	}
+	"Can not pvp while piggyback riding"
+	{
+		"en"	"{darkviolet}[PvP]{default} You {crimson}can not{default} participate in {goldenrod}Global PvP{default} while piggyback riding"
+	}
+	"Can not use this command in pvp"
+	{
+		"en"	"{darkviolet}[PvP]{default} You {crimson}can not{default} use this command while in PvP"
+	}
 }

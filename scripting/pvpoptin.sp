@@ -10,9 +10,10 @@
 #undef REQUIRE_PLUGIN
 #include <nativevotes>
 #tryinclude <mirrordamage>
+//#tryinclude <piggyback>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "23w12a"
+#define PLUGIN_VERSION "23w18a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -51,6 +52,8 @@ bool depNativeVotes;
 //is the "Mirror Damage" plugin by Forth loaded? map that's value to our external flag and shortcut the command
 // version i have is from here: https://github.com/Deiz/sm-plugins; feel free to PR/issue other mirror plugins with API
 bool depMirrorDamage;
+// drop out of pvp if you are piggybacking
+//bool depPiggyback;
 
 bool isActive; //plugin active flag changed depending on game state
 eGameState currentGameState;
@@ -126,6 +129,10 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_fakepvprequest", Command_ForceRequest, ADMFLAG_CHEATS, "Usage: <requester|userid> <requestee|userid> - Force request pvp from another users perspective");
 	RegAdminCmd("sm_banpvp", Command_BanPvP, ADMFLAG_BAN, "Usage: <name|userid> [<minutes> [reason]] - Ban a player from taking part in pvp");
 	RegAdminCmd("sm_unbanpvp", Command_UnbanPvP, ADMFLAG_UNBAN, "Usage: <name|userid> - Unban a player from pvp");
+//	AddCommandListener(Command_BlockedInPvP, "kill");
+//	AddCommandListener(Command_BlockedInPvP, "explode");
+//	AddCommandListener(Command_BlockedInPvP, "jointeam");
+//	AddCommandListener(Command_BlockedInPvP, "changeteam");
 
 	AddMultiTargetFilter("@pvp", TargetSelector_PVP, "all PvPer", false);
 	AddMultiTargetFilter("@!pvp", TargetSelector_PVP, "all Non-PvPer", false);
@@ -169,6 +176,7 @@ public void OnPluginStart() {
 public void OnAllPluginsLoaded() {
 	depNativeVotes = LibraryExists("nativevotes");
 	depMirrorDamage = LibraryExists("mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE;
+	//depPiggyback = LibraryExists("piggyback");
 }
 
 public void OnPluginEnd() {
@@ -183,11 +191,13 @@ public void OnPluginEnd() {
 public void OnLibraryAdded(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = true;
 	if (StrEqual(name, "mirrordamage") && FindPluginByName("Mirror Damage", "Forth")!=INVALID_HANDLE) depMirrorDamage = true;
+	//if (StrEqual(name, "piggyback")) depPiggyback = true;
 }
 
 public void OnLibraryRemoved(const char[] name) {
 	if (StrEqual(name, "nativevotes")) depNativeVotes = false;
 	if (StrEqual(name, "mirrordamage")) depMirrorDamage = false;
+	//if (StrEqual(name, "piggyback")) depPiggyback = false;
 }
 
 public void OnMapEnd() {
@@ -722,6 +732,21 @@ public Action Command_StopPvP(int client, int args) {
 	return Plugin_Handled;
 }
 
+public Action Command_BlockedInPvP(int client, const char[] command, int argc) {
+	if (!IsClientInGame(client) || GetClientTeam(client)<2 || !IsPlayerAlive(client)) return Plugin_Continue;
+	if (IsGlobalPvP(client) || HasAnyPairPvP(client)) {
+		//if the player is in pvp and has no slay permission, prevent suicides
+		if (!CheckCommandAccess(client, "slay", ADMFLAG_SLAY)) {
+			CPrintToChat(client, "%t", "Can not use this command in pvp");
+			return Plugin_Stop;
+		} else {
+			CPrintToChat(client, "%t (IDC)", "Can not use this command in pvp");
+		}
+	}
+	return Plugin_Continue;
+}
+
+
 static void RequestPairPvP(int requester, int requestee, bool antiSpam=false) {
 	float tmp;
 	if (requester == requestee || pairPvPignored[requestee] || clientPvPBannedUntil[requestee] > GetTime()) {
@@ -784,13 +809,16 @@ static void DeclinePairPvP(int requestee, bool CloseMenus=true) {
 	}
 }
 static void EndAllPairPvPFor(int client) {
-	for (int i=1;i<=MaxClients;i++) {
-		if (pairPvP[client][i]) {
-			CPrintToChat(i, "%t", "Someone disengaged pair pvp", client);
+	if (IsClientInGame(client)) {
+		for (int i=1;i<=MaxClients;i++) {
+			if (pairPvP[client][i] && IsClientInGame(i)) {
+				CPrintToChat(i, "%t", "Someone disengaged pair pvp", client);
+			}
 		}
 	}
 	SetPairPvPClient(client, false);
-	CPrintToChat(client, "%t", "You disengaged all pair pvp");
+	if (IsClientInGame(client))
+		CPrintToChat(client, "%t", "You disengaged all pair pvp");
 }
 
 static ArrayList pairPvPVoteData;
@@ -908,9 +936,17 @@ void PrintGlobalPvpState(int client) {
 //return false if cancelled
 bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 	bool modelValid = IsPlayerModelValid(client);
-	if (pvp && !modelValid) {
-		CPrintToChat(client, "%t", "Model invalid for global pvp");
-		return false;
+	if (pvp) {
+		if (!modelValid) {
+			CPrintToChat(client, "%t", "Model invalid for global pvp");
+			return false;
+		}
+#if defined piggyback_inc
+		if (depPiggyback && Piggyback_GetClientPiggy(client) != INVALID_ENT_REFERENCE) {
+			CPrintToChat(client, "%t", "Can not pvp while piggyback riding");
+			return false;
+		}
+#endif
 	}
 	
 	bool enterPvP = pvp && !(globalPvP[client]&State_Enabled);

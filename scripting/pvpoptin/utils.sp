@@ -34,6 +34,11 @@ public Action Timer_EverySecond(Handle timer) {
 				CPrintToChat(client, "%t", "Healing only allowed in global PvP");
 			}
 		}
+#if defined piggyback_inc
+		if (depPiggyback && (globalPvP[client] & State_Enabled) != State_Enabled && Piggyback_GetClientPiggy(client) != INVALID_ENT_REFERENCE) {
+			SetGlobalPvP(client, false);
+		}
+#endif
 	}
 	
 	return Plugin_Continue;
@@ -241,6 +246,7 @@ Handle FindPluginByName(const char[] pluginName, const char[] pluginAuthor=NULL_
  * @return true if the player is valid and the player model is valid.
  */
 bool IsPlayerModelValid(int player) {
+	if (!IsClientInGame(player)) return true; //ignore (=pass) check while connecting
 	return LookupEntityAttachment(player, "head") > 0;
 }
 
