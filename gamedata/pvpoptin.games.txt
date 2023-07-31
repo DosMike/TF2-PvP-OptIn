@@ -9,8 +9,8 @@
 			{
 				// Offset from CTFPlayer to CTFPlayerClassShared member, used to get client from CTFPlayerClassShared functions
 				// Inspect calls to CTFPlayerClassShared::SetCustomModel from CTFPlayer::SetCustomModel. For win: this should be 4 very short functions that are basically SetCustomModel();UpdateModel()
-				"linux"		"8768"
-				"windows"	"8764"
+				"linux"		"8904"
+				"windows"	"8900"
 			}
 		}
 		"Signatures"
