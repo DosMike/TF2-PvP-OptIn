@@ -62,13 +62,15 @@
 				// LKASM : 55 8B EC 83 EC 0C 53 57 8B F9 8D 8F B0 19 00 00 E8 FB 7D 03 00
 				// MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00
 			}
-			"CObjectSentrygun::ValidTargetPlayer()"
-			{
+			"CObjectSentrygun::FindTarget()"
+			{ 	//Unique string "Building_Sentrygun.Idle3" in CObjectSentrygun::SentryRotate
+				// first call after two conditional RemoveGesture time.
+				//Doublecheck: FindTarget first sets shield time to gametime + 3.0 conditionally
 				"library" "server"
-				"linux" "@_ZN16CObjectSentrygun17ValidTargetPlayerEP9CTFPlayerRK6VectorS4_"
-				"windows" "\x55\x8B\xEC\x51\x53\x8B\x5D\x08\x57\x89\x4D\xFC\x8D\xBB****"
-				// LKASM : 55 8B EC 51 53 8B 5D 08 57 89 4D FC 8D BB B0 19 00 00
-				// MASK  : FF FF FF FF FF FF F8 00 FF FF F8 00 FF F8 00 00 00 00
+				"linux" "@_ZN16CObjectSentrygun10FindTargetEv"
+				"windows" "\x55\x8B\xEC\x81\xEC\xC8\x00\x00\x00\x56\x57\x8B\xF9\x80\xBF****\x00"
+				// LKASM : 55 8b ec 81 ec c8 00 00 00 56 57 8b f9 80 bf 30 0b 00 00 00
+				// MASK  : FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 00 00 00 FF
 			}
 			"CObjectSentrygun::FoundTarget()"
 			{
@@ -204,26 +206,14 @@
 					}
 				}
 			}
-			"CObjectSentrygun::ValidTargetPlayer()"
+			"CObjectSentrygun::FindTarget()"
 			{
-				"signature" "CObjectSentrygun::ValidTargetPlayer()"
+				"signature" "CObjectSentrygun::FindTarget()"
 				"callconv" "thiscall"
 				"return" "bool"
 				"this" "entity"
 				"arguments"
 				{
-					"player"
-					{
-						"type" "cbaseentity"
-					}
-					"vector1"
-					{
-						"type" "vectorptr"
-					}
-					"vector2"
-					{
-						"type" "vectorptr"
-					}
 				}
 			}
 			"CObjectSentrygun::FoundTarget()"

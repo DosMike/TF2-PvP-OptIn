@@ -9,11 +9,17 @@
 #include <tf2utils>
 #undef REQUIRE_PLUGIN
 #include <nativevotes>
+#if !defined _nativevotes_included
+#warning Compiling without NativeVotes
+#endif
 #tryinclude <mirrordamage>
+#if !defined  _mirrordamage_included
+#warning Compiling without MirrorDamage
+#endif
 //#tryinclude <piggyback>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "23w18a"
+#define PLUGIN_VERSION "23w31a"
 #pragma newdecls required
 #pragma semicolon 1
 

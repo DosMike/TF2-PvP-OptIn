@@ -20,8 +20,8 @@ static DHookSetup hdl_CEyeballBoss_FindClosestVisibleVictim;
 static bool detoured_CEyeballBoss_FindClosestVisibleVictim;
 static DHookSetup hdl_CTFPlayer_ApplyGenericPushbackImpulse;
 static bool detoured_CTFPlayer_ApplyGenericPushbackImpulse;
-static DHookSetup hdl_CObjectSentrygun_ValidTargetPlayer;
-static bool detoured_CObjectSentrygun_ValidTargetPlayer;
+static DHookSetup hdl_CObjectSentrygun_FindTarget;
+static bool detoured_CObjectSentrygun_FindTarget;
 static DHookSetup hdl_CObjectSentrygun_FoundTarget;
 static bool detoured_CObjectSentrygun_FoundTarget;
 static DHookSetup hdl_CWeaponMedigun_AllowedToHealTarget;
@@ -44,7 +44,7 @@ void Plugin_SetupDHooks() {
 		hdl_CMerasmusAttack_IsPotentiallyChaseable = DHookCreateFromConf(pvpfundata, "CMerasmusAttack::IsPotentiallyChaseable()");
 		hdl_CEyeballBoss_FindClosestVisibleVictim = DHookCreateFromConf(pvpfundata, "CEyeballBoss::FindClosestVisibleVictim()");
 		hdl_CTFPlayer_ApplyGenericPushbackImpulse = DHookCreateFromConf(pvpfundata, "CTFPlayer::ApplyGenericPushbackImpulse()");
-		hdl_CObjectSentrygun_ValidTargetPlayer = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::ValidTargetPlayer()");
+		hdl_CObjectSentrygun_FindTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::FindTarget()");
 		hdl_CObjectSentrygun_FoundTarget = DHookCreateFromConf(pvpfundata, "CObjectSentrygun::FoundTarget()");
 		//for windows, find a function with the string "weapon_blocks_healing" where the callee has the string "MedigunHealTargetThink" for i think CWeaponMedigun::FindNewTargetForSlot
 		hdl_CWeaponMedigun_AllowedToHealTarget = DHookCreateFromConf(pvpfundata, "CWeaponMedigun::AllowedToHealTarget()");
@@ -86,15 +86,15 @@ void DHooksAttach() {
 	} else {
 		PrintToServer("Could not hook CTFPlayer::ApplyGenericPushbackImpulse(Vector*,CTFPlayer*). This will be pushy!");
 	}
-	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && !detoured_CObjectSentrygun_ValidTargetPlayer) {
-		detoured_CObjectSentrygun_ValidTargetPlayer = DHookEnableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
+	if (hdl_CObjectSentrygun_FindTarget != INVALID_HANDLE && !detoured_CObjectSentrygun_FindTarget) {
+		detoured_CObjectSentrygun_FindTarget = DHookEnableDetour(hdl_CObjectSentrygun_FindTarget, true, Detour_CObjectSentrygun_FindTarget);
 	} else {
-		PrintToServer("Could not hook CObjectSentrygun::ValidTargetPlayer(CTFPlayer*,Vector*,Vector*). Whack!");
+		PrintToServer("Could not hook CObjectSentrygun::FindTarget(). Turrets will always track zombies and bosses players!");
 	}
 	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && !detoured_CObjectSentrygun_FoundTarget) {
 		detoured_CObjectSentrygun_FoundTarget = DHookEnableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 	} else {
-		PrintToServer("Could not hook CObjectSentrygun::FoundTarget(CTFPlayer*,Vector*,bool). Turrets will always track zombies and bosses!");
+		PrintToServer("Could not hook CObjectSentrygun::FoundTarget(CTFPlayer*,Vector*,bool). Turrets will beepbeepbeepbeepbeep!");
 	}
 	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && !detoured_CWeaponMedigun_AllowedToHealTarget) {
 		detoured_CWeaponMedigun_AllowedToHealTarget = DHookEnableDetour(hdl_CWeaponMedigun_AllowedToHealTarget, false, Detour_CWeaponMedigun_AllowedToHealTarget);
@@ -125,8 +125,8 @@ void DHooksDetach() {
 		detoured_CEyeballBoss_FindClosestVisibleVictim ^= DHookDisableDetour(hdl_CEyeballBoss_FindClosestVisibleVictim, true, Detour_CEyeballBoss_FindClosestVisibleVictim);
 	if (hdl_CTFPlayer_ApplyGenericPushbackImpulse != INVALID_HANDLE && detoured_CTFPlayer_ApplyGenericPushbackImpulse)
 		detoured_CTFPlayer_ApplyGenericPushbackImpulse ^= DHookDisableDetour(hdl_CTFPlayer_ApplyGenericPushbackImpulse, false, Detour_CTFPlayer_ApplyGenericPushbackImpulse);
-	if (hdl_CObjectSentrygun_ValidTargetPlayer != INVALID_HANDLE && detoured_CObjectSentrygun_ValidTargetPlayer)
-		detoured_CObjectSentrygun_ValidTargetPlayer ^= DHookDisableDetour(hdl_CObjectSentrygun_ValidTargetPlayer, true, Detour_CObjectSentrygun_ValidTargetPlayer);
+	if (hdl_CObjectSentrygun_FindTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FindTarget)
+		detoured_CObjectSentrygun_FindTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FindTarget, true, Detour_CObjectSentrygun_FindTarget);
 	if (hdl_CObjectSentrygun_FoundTarget != INVALID_HANDLE && detoured_CObjectSentrygun_FoundTarget)
 		detoured_CObjectSentrygun_FoundTarget ^= DHookDisableDetour(hdl_CObjectSentrygun_FoundTarget, false, Detour_CObjectSentrygun_FoundTarget);
 	if (hdl_CWeaponMedigun_AllowedToHealTarget != INVALID_HANDLE && detoured_CWeaponMedigun_AllowedToHealTarget)
@@ -202,44 +202,56 @@ public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHook
 	return MRES_Ignored;
 }
 
-public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookReturn hReturn, DHookParam hParams) {
-//	float impulse[3]; hParams.GetVector(1, impulse);
-	if (hParams.IsNull(1)) return MRES_Ignored;
-	int target = hParams.Get(1);
-	int engi = GetPlayerEntity(building);
-	if (IsValidClient(target) && IsValidClient(engi) && !CanClientsPvP(engi,target)) {
-		hReturn.Value = false;
-		return MRES_Override; //idk what whacky stuff valve is doing there
+static bool SentryIsTargetBlocked(int sentry, int target) {
+	int engi = GetPlayerEntity(sentry);
+	bool blocked;
+	char classname[64];
+	if (target == INVALID_ENT_REFERENCE) return false; //error, do whatever you want
+	if (1<=target<=MaxClients) {
+		blocked = CanClientsPvP(engi, target)==0;
+	} else {
+		GetEntityClassname(target, classname, sizeof(classname));
+		if (IsEntityZombie(classname)) {
+			//we are trying to target a zombie, are we allowed to do at all?
+			ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
+			if (mode == PvA_Zombies_Always) blocked = false;
+			else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
+			else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+		} else if (IsEntityBoss(classname)) {
+			//we are trying to target a boss, are we allowed to do at all?
+			ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
+			if (mode == PvA_Bosses_Always) blocked = false;
+			else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
+			else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
+		} else if (IsEntityBuilding(classname)) {
+			//hey ho, we target another building
+			int otherEngi = GetPlayerEntity(target);
+			blocked = IsValidClient(otherEngi) && !CanClientsPvP(engi,otherEngi);
+		}
 	}
-	return MRES_Ignored;
+	return blocked;
+}
+
+public MRESReturn Detour_CObjectSentrygun_FindTarget(int building, DHookReturn hReturn) {
+	//if (hParams.IsNull(1)) return MRES_Ignored;
+	//int target = hParams.Get(1);
+	int target = GetEntPropEnt(building, Prop_Send, "m_hEnemy");
+	if (SentryIsTargetBlocked(building, target)) {
+		hReturn.Value = false;
+		SetEntPropEnt(building, Prop_Send, "m_hEnemy", INVALID_ENT_REFERENCE);
+		return MRES_Override;
+	}
+	return MRES_Ignored; //skip setting the target if blocked
 }
 
 public MRESReturn Detour_CObjectSentrygun_FoundTarget(int building, DHookParam hParams) {
 	if (hParams.IsNull(1)) return MRES_Ignored;
 	int target = hParams.Get(1);
-	int engi = GetPlayerEntity(building);
-	bool blocked;
-	char classname[64];
-	if (target == INVALID_ENT_REFERENCE) return MRES_Ignored; //error, do whatever you want
-	GetEntityClassname(target, classname, sizeof(classname));
-	if (IsEntityZombie(classname)) {
-		//we are trying to target a zombie, are we allowed to do at all?
-		ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
-		if (mode == PvA_Zombies_Always) blocked = false;
-		else if (mode != PvA_Zombies_GlobalPvP) blocked = true;
-		else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
-	} else if (IsEntityBoss(classname)) {
-		//we are trying to target a boss, are we allowed to do at all?
-		ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
-		if (mode == PvA_Bosses_Always) blocked = false;
-		else if (mode != PvA_Bosses_GlobalPvP) blocked = true;
-		else blocked = IsValidClient(engi) && !IsGlobalPvP(engi) && !IsGlobalPvP(0);
-	} else if (IsEntityBuilding(classname)) {
-		//hey ho, we target another building
-		int otherEngi = GetPlayerEntity(target);
-		blocked = IsValidClient(otherEngi) && !CanClientsPvP(engi,otherEngi);
+	if (SentryIsTargetBlocked(building, target)) {
+		hParams.Set(3, true); //set noSound true
+		return MRES_ChangedHandled;
 	}
-	return blocked ? MRES_Supercede: MRES_Ignored; //skip setting the target if blocked
+	return MRES_Ignored; //skip setting the target if blocked
 }
 
 public MRESReturn Detour_CWeaponMedigun_AllowedToHealTarget(int weapon, DHookReturn hReturn, DHookParam hParams) {
