@@ -1031,7 +1031,7 @@ static void SetPairPvPClient(int client, bool pvp=false) {
 		UpdatePvPParticles(i);
 	}
 }
-static bool HasAnyPairPvP(int client) {
+bool HasAnyPairPvP(int client) {
 	for (int i=1;i<=MaxClients;i++) {
 		if (pairPvP[client][i]) return true;
 	}
@@ -1162,6 +1162,7 @@ public void OnEntityCreated(int entity, const char[] classname) {
 	} else if (IsEntityBuilding(classname)) {
 		SDKHook(entity, SDKHook_OnTakeDamage, OnBuildingTakeDamage);
 	}
+	DHooksAttachTo(entity, classname);
 }
 
 static void SDKHookClient(int client) {
