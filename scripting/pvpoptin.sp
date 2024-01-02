@@ -19,7 +19,7 @@
 //#tryinclude <piggyback>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "23w52a"
+#define PLUGIN_VERSION "24w01a"
 #pragma newdecls required
 #pragma semicolon 1
 

@@ -165,55 +165,26 @@ public MRESReturn Detour_CZombieAttack_IsPotentiallyChaseable(DHookReturn hRetur
 	if (hParams.IsNull(2))
 		return MRES_Ignored;// we're not changing behaviour
 	int player = hParams.Get(2);
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_ZOMBIES;
-	bool blocked;
-	if (targetMode == PvA_Zombies_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Zombies_GlobalPvP) blocked = true;
-	else blocked = IsValidClient(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
+	if (CanZombieAttack(player)) return MRES_Ignored;
+	hReturn.Value = false;
+	return MRES_Override;
 }
 public MRESReturn Detour_BossAttack_IsPotentiallyChaseable(DHookReturn hReturn, DHookParam hParams) {
 	if (hParams.IsNull(2))
 		return MRES_Ignored;// we're not changing behaviour
 	int player = hParams.Get(2);
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
-	bool blocked;
-	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = IsValidClient(player) && !IsGlobalPvP(player) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
+	if (CanBossAttack(player)) return MRES_Ignored;
+	hReturn.Value = false;
+	return MRES_Override;
 }
 public MRESReturn Dhook_CEyeballBoss_IsLineOfSightClear(int eyeball, DHookReturn hReturn, DHookParam hParams) {
 	if (!eyeball) return MRES_Ignored;
 	if (hParams.IsNull(1))
 		return MRES_Ignored;// we're not changing behaviour
 	int target = hParams.Get(1);
-	if (1 > target > MaxClients) {
-		//not targeting a player, check if building
-		char classname[32]
-		if (GetEntityClassname(target, classname, sizeof(classname)) && strncmp(classname, "obj_", 4)==0) {
-			target = GetEntPropEnt(target, Prop_Send, "m_hBuilder");
-			if (1 > target > MaxClients) return MRES_Ignored; //no builder
-		} else return MRES_Ignored;
-	}
-	ePlayerVsAiFlags targetMode = pvaPlayers & PvA_BOSSES;
-	bool blocked;
-	if (targetMode == PvA_Bosses_Always) return MRES_Ignored;
-	else if (targetMode != PvA_Bosses_GlobalPvP) blocked = true;
-	else blocked = IsValidClient(target) && !IsGlobalPvP(target) && !IsGlobalPvP(0);
-	if (blocked) {
-		hReturn.Value = false;
-		return MRES_Override;
-	}
-	return MRES_Ignored;
+	if (CanBossAttack(target)) return MRES_Ignored;
+	hReturn.Value = false;
+	return MRES_Override;
 }
 
 public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHookParam hParams) {
@@ -226,24 +197,30 @@ public MRESReturn Detour_CTFPlayer_ApplyGenericPushbackImpulse(int player, DHook
 }
 
 public MRESReturn Detour_CObjectSentrygun_ValidTargetPlayer(int building, DHookReturn hReturn, DHookParam hParams) {
-	if (hReturn.Value == false || hParams.IsNull(1)) return MRES_Ignored;
+	if (hReturn.Value == false || hParams.IsNull(1))
+		return MRES_Ignored;
 	int target = hParams.Get(1);
-	bool valid = UTIL_SentryIsTargetValidPlayer(building, target);
-	hReturn.Value = valid;
+	if (UTIL_SentryIsTargetValidPlayer(building, target))
+		return MRES_Ignored; //use game check
+	hReturn.Value = false;
 	return MRES_Override;
 }
 public MRESReturn Detour_CObjectSentrygun_ValidTargetBot(int building, DHookReturn hReturn, DHookParam hParams) {
-	if (hReturn.Value == false || hParams.IsNull(1)) return MRES_Ignored;
+	if (hReturn.Value == false || hParams.IsNull(1))
+		return MRES_Ignored;
 	int target = hParams.Get(1);
-	bool valid = UTIL_SentryIsTargetValidBot(building, target);
-	hReturn.Value = valid;
+	if (UTIL_SentryIsTargetValidBot(building, target))
+		return MRES_Ignored; //use game check
+	hReturn.Value = false;
 	return MRES_Override;
 }
 public MRESReturn Detour_CObjectSentrygun_ValidTargetObject(int building, DHookReturn hReturn, DHookParam hParams) {
-	if (hReturn.Value == false || hParams.IsNull(1)) return MRES_Ignored;
+	if (hReturn.Value == false || hParams.IsNull(1))
+		return MRES_Ignored;
 	int target = hParams.Get(1);
-	bool valid = UTIL_SentryIsTargetValidObject(building, target);
-	hReturn.Value = valid;
+	if (UTIL_SentryIsTargetValidObject(building, target))
+		return MRES_Ignored; //use game check
+	hReturn.Value = false;
 	return MRES_Override;
 }
 
@@ -354,16 +331,10 @@ static bool UTIL_SentryIsTargetValidBot(int sentry, int target) {
 		GetEntityClassname(target, classname, sizeof(classname));
 		if (IsEntityZombie(classname)) {
 			//we are trying to target a zombie, are we allowed to do at all?
-			ePlayerVsAiFlags mode = pvaBuildings & PvA_ZOMBIES;
-			if (mode == PvA_Zombies_Always) return true;
-			else if (mode != PvA_Zombies_GlobalPvP) return false;
-			else return IsGlobalPvP(engi) || IsGlobalPvP(0);
+			return CanZombieAttack(sentry);
 		} else if (IsEntityBoss(classname)) {
 			//we are trying to target a boss, are we allowed to do at all?
-			ePlayerVsAiFlags mode = pvaBuildings & PvA_BOSSES;
-			if (mode == PvA_Bosses_Always) return true;
-			else if (mode != PvA_Bosses_GlobalPvP) return false;
-			else return IsGlobalPvP(engi) || IsGlobalPvP(0);
+			return CanBossAttack(sentry);
 		}
 	}
 	return true; //error?
@@ -373,6 +344,7 @@ static bool UTIL_SentryIsTargetValidObject(int sentry, int target) {
 	int engi = GetPlayerEntity(sentry);
 	char classname[64];
 	if (engi == INVALID_ENT_REFERENCE || target == INVALID_ENT_REFERENCE) return true; //world-sentry or error
+	GetEntityClassname(target, classname, sizeof(classname));
 	if (IsEntityBuilding(classname)) {
 		//hey ho, we target another building
 		int otherEngi = GetPlayerEntity(target);

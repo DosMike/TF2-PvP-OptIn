@@ -198,6 +198,36 @@ bool IsEntityBoss(const char[] classname) {
 bool IsEntityBuilding(const char[] classname) {
 	return (StrEqual(classname, "obj_sentrygun") || StrEqual(classname, "obj_dispenser") || StrEqual(classname, "obj_teleporter"));
 }
+bool CanZombieAttack(int target) {
+	ePlayerVsAiFlags flags;
+	char classname[32];
+	if (1<=target<=MaxClients) {
+		// target is player or bot
+		if (IsFakeClient(target)) return true;
+		flags = (pvaPlayers & PvA_ZOMBIES);
+	} else if (GetEntityClassname(target, classname, sizeof(classname)) && IsEntityBuilding(classname)) {
+		// target is engi building
+		flags = (pvaBuildings & PvA_ZOMBIES);
+		target = GetEntPropEnt(target, Prop_Send, "m_hBuilder");
+		if (target == INVALID_ENT_REFERENCE || !IsClientInGame(target)) return true;
+	} else return true; //fallback default for not player, not building
+	return (flags == PvA_Zombies_Always) || (flags == PvA_Zombies_GlobalPvP && (IsGlobalPvP(target) || IsGlobalPvP(0)));
+}
+bool CanBossAttack(int target) {
+	ePlayerVsAiFlags flags;
+	char classname[32];
+	if (1<=target<=MaxClients) {
+		// target is player or bot
+		if (IsFakeClient(target)) return true;
+		flags = (pvaPlayers & PvA_BOSSES);
+	} else if (GetEntityClassname(target, classname, sizeof(classname)) && IsEntityBuilding(classname)) {
+		// target is engi building
+		flags = (pvaBuildings & PvA_BOSSES);
+		target = GetEntPropEnt(target, Prop_Send, "m_hBuilder");
+		if (target == INVALID_ENT_REFERENCE || !IsClientInGame(target)) return true;
+	} else return true; //fallback default for not player, not building
+	return (flags == PvA_Bosses_Always) || (flags == PvA_Bosses_GlobalPvP && (IsGlobalPvP(target) || IsGlobalPvP(0)));
+}
 
 int GetPlayerDamageSource(int attacker, int inflictor) {
 	int source;
