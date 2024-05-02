@@ -135,14 +135,14 @@ There's also a settings menu to toggle global PvP and pair PvP.
 ### Dependencies:
 
 Install the following required plugins:
-- [CollisionHook](https://github.com/Adrianilloo/Collisionhook/releases)
+- [CollisionHook](https://github.com/voided/CollisionHook/releases)
 - [TF Utils](https://github.com/nosoop/SM-TFUtils/releases)
 - [NativeVotes](https://github.com/sapphonie/sourcemod-nativevotes-updated) (Optional)
 
 The CollisionHook branch I linked is prebuilt, but the **gamedata might be outdate**.
-Check [this file](https://github.com/Adrianilloo/Collisionhook/blob/master/extra/collisionhook.txt), it should be up to date.
+Check [this file](https://github.com/voided/CollisionHook/blob/master/sourcemod/gamedata/collisionhook.txt), it should be up to date.
 
-Compiling the plugin requires [MoreColors](https://raw.githubusercontent.com/DoctorMcKay/sourcemod-plugins/master/scripting/include/morecolors.inc)
+Compiling the plugin requires [Multi-Colors](https://github.com/Bara/Multi-Colors)
 
 Note: uses two functions from [SMLib's transitional syntax branch](https://github.com/bcserv/smlib/tree/transitional_syntax) (in utils.sp)
 
