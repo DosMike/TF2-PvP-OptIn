@@ -3,7 +3,7 @@
 #include <sdkhooks>
 #include <clientprefs>
 
-#include <morecolors>
+#include <multicolors>
 #include <collisionhook>
 #include <dhooks>
 #include <tf2utils>
@@ -616,7 +616,7 @@ public Action Command_ForcePvP(int client, int args) {
 				if (!pvpon) globalPvP[i] &=~ State_Forced; //turn off previously individually set flags
 				UpdateEntityFlagsGlobalPvP(i, IsGlobalPvP(i));
 			}
-			CSkipNextClient(client);
+			MC_SkipNextClient(client);
 			if (pvpon) {
 				CPrintToChatAll("%t", "Someone forced map pvp", client);
 				CReplyToCommand(client, "%t", "You forced map pvp");
