@@ -4,7 +4,12 @@
 #include <clientprefs>
 
 #include <morecolors>
+#undef REQUIRE_EXTENSIONS
 #include <collisionhook>
+#if !defined _collisionhook_included
+#warning Compiling without CollisionHooks
+#endif
+#define REQUIRE_EXTENSIONS
 #include <dhooks>
 #include <tf2utils>
 #undef REQUIRE_PLUGIN
@@ -19,7 +24,7 @@
 //#tryinclude <piggyback>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "24w01a"
+#define PLUGIN_VERSION "24w17a"
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -954,7 +959,7 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		}
 #endif
 	}
-	
+
 	bool enterPvP = pvp && !(globalPvP[client]&State_Enabled);
 	if (checkCooldown) {
 		//timeLeft = cooldown - time spent in pvp
@@ -965,7 +970,7 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		}
 		if (enterPvP) clientLatestPvPAction[client] = GetClientTime(client);
 	}
-	
+
 	Cookie cookie;
 	eEnabledState newState;
 	if (pvp) newState |= State_Enabled;
@@ -975,7 +980,7 @@ bool SetGlobalPvP(int client, bool pvp, bool checkCooldown=false) {
 		globalPvP[client] = newState;
 		pvp = (newState & State_Enabled) == State_Enabled;
 	} else return false; //nothing changed, what do you want? :D
-	
+
 	//potential punishment for toggling
 	if (pvp) {
 		if ((togglePvPAction & TGACT_IN_KILL)!=0) ForcePlayerSuicide(client);
@@ -1169,6 +1174,7 @@ static void SDKHookClient(int client) {
 	SDKHook(client, SDKHook_OnTakeDamageAlive, OnClientTakeDamage);
 	SDKHook(client, SDKHook_OnTakeDamagePost, OnClientTakeDamagePost);
 	SDKHook(client, SDKHook_SpawnPost, OnClientSpawnPost);
+	SDKHook(client, SDKHook_ShouldCollide, OnClientShouldCollide);
 }
 
 public Action OnZombieTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
@@ -1209,6 +1215,25 @@ public Action OnBuildingTakeDamage(int victim, int &attacker, int &inflictor, fl
 	}
 	return Plugin_Continue;
 }
+static bool isTauntDamage(int damagecustom) {
+	switch (view_as<eTFDmgCustom>(damagecustom)) {
+	case TF_DMG_CUSTOM_TAUNTATK_HADOUKEN,
+			TF_DMG_CUSTOM_TAUNTATK_HIGH_NOON,
+			TF_DMG_CUSTOM_TAUNTATK_GRAND_SLAM,
+			TF_DMG_CUSTOM_TAUNTATK_FENCING,
+			TF_DMG_CUSTOM_TAUNTATK_ARROW_STAB,
+			TF_DMG_CUSTOM_TAUNTATK_GRENADE,
+			TF_DMG_CUSTOM_TAUNTATK_BARBARIAN_SWING,
+			TF_DMG_CUSTOM_TAUNTATK_UBERSLICE,
+			TF_DMG_CUSTOM_TAUNTATK_ENGINEER_GUITAR_SMASH,
+			TF_DMG_CUSTOM_TAUNTATK_ENGINEER_ARM_KILL,
+			TF_DMG_CUSTOM_TAUNTATK_ARMAGEDDON,
+			TF_DMG_CUSTOM_TAUNTATK_ALLCLASS_GUITAR_RIFF:
+		return true;
+	default:
+		return false;
+	}
+}
 public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom) {
 	// zombies and clients should not even target players
 	// but stray projectiles / spray might still hit them
@@ -1229,7 +1254,7 @@ public Action OnClientTakeDamage(int victim, int &attacker, int &inflictor, floa
 			damage = GetClientHealth(source) * 6.0;
 		SDKHooks_TakeDamage(source, inflictor, source, damage, damagetype, weapon, damageForce, damagePosition);
 		//damage was mirrored
-	} else if (allowTauntKilled[victim] && TF2_IsPlayerInCondition(source, TFCond_Taunting)) {
+	} else if (allowTauntKilled[victim] && TF2_IsPlayerInCondition(source, TFCond_Taunting) && isTauntDamage(damagecustom)) {
 		return Plugin_Continue; //allow taunt-kill explicitly
 	} else if ((pvpGrant=CanClientsPvP(victim,source))) {
 		//don't update cooldowns if we're forced into pvp or damage is self-inflicted
